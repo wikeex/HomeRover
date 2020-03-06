@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"time"
 	"udpTest"
 	"udpTest/config"
 )
@@ -34,8 +33,6 @@ func main()  {
 	sendMap["type"] = "serverResp"
 
 	for {
-		time.Sleep(time.Second)
-
 		receiveData := make([]byte, 548)
 
 		n, rAddr, err := conn.ReadFromUDP(receiveData)

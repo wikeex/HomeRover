@@ -6,6 +6,7 @@ type Data struct {
 	GroupId string `json:"groupId"`
 	PackageId string `json:"packageId"`
 	Data string `json:"data"`
+	Timestamp int64 `json:"timestamp"`
 }
 
 type Destination struct {

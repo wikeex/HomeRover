@@ -7,27 +7,28 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 	"udpTest"
 	"udpTest/config"
 )
 
-var cond *sync.Cond
 var ClientId string
 
 func init()  {
-	cond = sync.NewCond(&sync.Mutex{})
 	rand.Seed(time.Now().UnixNano())
 	ClientId = strconv.Itoa(rand.Int())
 }
 
-func send(conn *net.UDPConn, addr **net.UDPAddr, dataCh chan []byte)  {
-	cond.L.Lock()
-	cond.Wait()
-	defer cond.L.Unlock()
+func send(conn *net.UDPConn, addr **net.UDPAddr, dataCh chan string)  {
+
+	sender := udpTest.Data{ClientId:ClientId}
+
+	sender.Type = "send"
+
 	for {
-		data := <- dataCh
+		sender.Timestamp = time.Now().UnixNano()
+		sender.Data = <- dataCh
+		data, _ := json.Marshal(sender)
 		_, err := conn.WriteToUDP(data, *addr)
 		if err != nil {
 			fmt.Println(err)
@@ -62,12 +63,10 @@ func server(conn *net.UDPConn, beatCount *int) {
 	}
 }
 
-func receive(conn *net.UDPConn, beatCount *int, sendDataCh chan []byte, addr **net.UDPAddr, isReady *bool)  {
+func receive(conn *net.UDPConn, beatCount *int, addr **net.UDPAddr, isReady *bool)  {
 
 	receiver := udpTest.Data{}
 	sender := udpTest.Data{ClientId:ClientId}
-
-	startTime := time.Now().UnixNano()
 
 	for {
 		receiveData := make([]byte, 548)
@@ -97,7 +96,6 @@ func receive(conn *net.UDPConn, beatCount *int, sendDataCh chan []byte, addr **n
 			if err != nil {
 				fmt.Println(err)
 			}
-			cond.Broadcast()
 		case "probe":
 			sender.Type = "probeResp"
 			sendData, _ := json.Marshal(sender)
@@ -107,18 +105,12 @@ func receive(conn *net.UDPConn, beatCount *int, sendDataCh chan []byte, addr **n
 		case "send":
 			sender.Type = "receipt"
 			sender.Data = receiver.Data
+			sender.Timestamp = receiver.Timestamp
 			sendData, _ := json.Marshal(sender)
 			_, err = conn.WriteToUDP(sendData, *addr)
 		case "receipt":
-			if receiver.Data == sender.Data {
-				fmt.Print("耗时：")
-				fmt.Println(time.Now().UnixNano() - startTime)
-			}
-			sender.Type = "send"
-			sender.Data = strconv.Itoa(rand.Int())
-			sendData, _ := json.Marshal(sender)
-			sendDataCh <- sendData
-			startTime = time.Now().UnixNano()
+			fmt.Print("耗时：")
+			fmt.Println(time.Now().UnixNano() - receiver.Timestamp)
 		}
 
 	}
@@ -126,10 +118,6 @@ func receive(conn *net.UDPConn, beatCount *int, sendDataCh chan []byte, addr **n
 }
 
 func sendProbe(conn *net.UDPConn, addr **net.UDPAddr, isReady *bool)  {
-	cond.L.Lock()
-	cond.Wait()
-	defer cond.L.Unlock()
-
 	sender := udpTest.Data{Type:"probe", ClientId:ClientId}
 	sendData, err := json.Marshal(sender)
 	if err != nil {
@@ -145,12 +133,17 @@ func sendProbe(conn *net.UDPConn, addr **net.UDPAddr, isReady *bool)  {
 
 		time.Sleep(50 * time.Millisecond)
 	}
-
 }
 
-func inputData(dataCh chan []byte)  {
-	sender := udpTest.Data{Type:"send", ClientId:ClientId}
+func genData(sendDataCh chan string)  {
+	for {
+		sendDataCh <- strconv.Itoa(rand.Int())
+	}
+}
+
+func inputData()  {
 	var keyBoardData string
+
 	_, err := fmt.Scanln(&keyBoardData)
 	if err != nil {
 		fmt.Println(err)
@@ -158,9 +151,6 @@ func inputData(dataCh chan []byte)  {
 
 	fmt.Println("get keyboard input: " + keyBoardData)
 
-	sender.Data = strconv.Itoa(rand.Int())
-	sendData, _ := json.Marshal(sender)
-	dataCh <- sendData
 }
 
 
@@ -178,12 +168,15 @@ func main()  {
 	var addr *net.UDPAddr
 
 	beatCount := 10
-	sendDataCh := make(chan []byte)
+	sendDataCh := make(chan string, 10)
 	isReady := false
 
 	go server(conn, &beatCount)
+	go receive(conn, &beatCount, &addr, &isReady)
+	sendProbe(conn, &addr, &isReady)
 	go send(conn, &addr, sendDataCh)
-	go sendProbe(conn, &addr, &isReady)
-	go inputData(sendDataCh)
-	receive(conn, &beatCount, sendDataCh, &addr, &isReady)
+
+	go inputData()
+	genData(sendDataCh)
+
 }
