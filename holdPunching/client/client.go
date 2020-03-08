@@ -7,12 +7,14 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 	"udpTest"
 	"udpTest/config"
 )
 
 var ClientId string
+var mux = sync.Mutex{}
 
 func init()  {
 	rand.Seed(time.Now().UnixNano())
@@ -63,7 +65,7 @@ func server(conn *net.UDPConn, beatCount *int) {
 	}
 }
 
-func receive(conn *net.UDPConn, beatCount *int, addr **net.UDPAddr, isReady *bool)  {
+func receive(conn *net.UDPConn, addr **net.UDPAddr, isReady *bool, dataMap *map[string]interface{})  {
 
 	receiver := udpTest.Data{}
 	sender := udpTest.Data{ClientId:ClientId}
@@ -90,7 +92,6 @@ func receive(conn *net.UDPConn, beatCount *int, addr **net.UDPAddr, isReady *boo
 			if receiver.Data == "" {
 				break
 			}
-			*beatCount++
 
 			*addr, err = net.ResolveUDPAddr("udp", receiver.Data)
 			if err != nil {
@@ -109,8 +110,15 @@ func receive(conn *net.UDPConn, beatCount *int, addr **net.UDPAddr, isReady *boo
 			sendData, _ := json.Marshal(sender)
 			_, err = conn.WriteToUDP(sendData, *addr)
 		case "receipt":
+			// 计算丢包率
+			mux.Lock()
+			delete(*dataMap, receiver.Data)
+			missingRatio := float32(len(*dataMap) - 11) / float32(((*dataMap)["count"]).(int64))
+			mux.Unlock()
 			fmt.Print("耗时：")
 			fmt.Println(time.Now().UnixNano() - receiver.Timestamp)
+			fmt.Printf("丢包率：%.6f%%", missingRatio * 100)
+			fmt.Println("")
 		}
 
 	}
@@ -135,9 +143,16 @@ func sendProbe(conn *net.UDPConn, addr **net.UDPAddr, isReady *bool)  {
 	}
 }
 
-func genData(sendDataCh chan string)  {
+func genData(sendDataCh chan string, dataMap *map[string]interface{})  {
+	var count int64
 	for {
-		sendDataCh <- strconv.Itoa(rand.Int())
+		data := strconv.Itoa(rand.Int())
+		sendDataCh <- data
+		mux.Lock()
+		(*dataMap)[data] = true
+		(*dataMap)["count"] = count
+		mux.Unlock()
+		count++
 	}
 }
 
@@ -170,13 +185,14 @@ func main()  {
 	beatCount := 10
 	sendDataCh := make(chan string, 10)
 	isReady := false
+	dataMap := make(map[string]interface{})
 
 	go server(conn, &beatCount)
-	go receive(conn, &beatCount, &addr, &isReady)
+	go receive(conn, &addr, &isReady, &dataMap)
 	sendProbe(conn, &addr, &isReady)
 	go send(conn, &addr, sendDataCh)
 
 	go inputData()
-	genData(sendDataCh)
+	genData(sendDataCh, &dataMap)
 
 }

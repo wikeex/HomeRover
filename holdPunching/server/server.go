@@ -48,7 +48,7 @@ func main()  {
 		}
 		fmt.Println(string(receiveData))
 
-		// 每次接收到心跳包都会更新自己的Address和对方的Destination
+		// update Address and Destination when get heartbeat package
 		if client, ok := links[receiveMap.ClientId]; ok{
 			client.Address = rAddr.String()
 			UpdateDest(&links)
@@ -77,15 +77,12 @@ func main()  {
 
 func UpdateDest(links *map[string]udpTest.ClientOnServer)  {
 	for _, clientA := range *links {
+		tempClient := udpTest.ClientOnServer{Id:clientA.Id, Address:clientA.Address}
 		for _, clientB := range *links {
 			if clientA.Id != clientB.Id {
-				tempClient := udpTest.ClientOnServer{Id:clientA.Id, Address:clientA.Address}
-				destinations := make([]udpTest.Destination, 0, 100)
-				destinations = append(destinations, udpTest.Destination{Id:clientB.Id, Address:clientB.Address})
-				tempClient.Destination = destinations
-
-				(*links)[clientA.Id] = tempClient
+				tempClient.Destination = append(tempClient.Destination, udpTest.Destination{Id:clientB.Id, Address:clientB.Address})
 			}
 		}
+		(*links)[clientA.Id] = tempClient
 	}
 }
