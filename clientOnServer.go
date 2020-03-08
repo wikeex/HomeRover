@@ -1,5 +1,7 @@
 package udpTest
 
+import "net"
+
 type Data struct {
 	Type string `json:"type"`
 	ClientId string `json:"ClientId"`
@@ -11,7 +13,7 @@ type Data struct {
 
 type Destination struct {
 	Id string `json:"id"`
-	Address string `json:"address"`
+	Address *net.UDPAddr `json:"address"`
 }
 
 

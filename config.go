@@ -1,4 +1,4 @@
-package config
+package udpTest
 
 const (
 	SERVER_IP       = "140.143.99.31"

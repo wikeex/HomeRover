@@ -7,13 +7,12 @@ import (
 	"os"
 	"strconv"
 	"udpTest"
-	"udpTest/config"
 )
 
 func main()  {
 	links := make(map[string]udpTest.ClientOnServer)
 
-	serverAddrStr := "0.0.0.0" + ":" + strconv.Itoa(config.SERVER_PORT)
+	serverAddrStr := "0.0.0.0" + ":" + strconv.Itoa(udpTest.SERVER_PORT)
 	serverAddr, err := net.ResolveUDPAddr("udp", serverAddrStr)
 	if err != nil {
 		fmt.Println(err)

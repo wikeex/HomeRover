@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 	"udpTest"
-	"udpTest/config"
 )
 
 var ClientId string
@@ -48,7 +47,7 @@ func server(conn *net.UDPConn, beatCount *int) {
 		fmt.Println(err)
 	}
 
-	addrStr := config.SERVER_IP + ":" + strconv.Itoa(config.SERVER_PORT)
+	addrStr := udpTest.SERVER_IP + ":" + strconv.Itoa(udpTest.SERVER_PORT)
 	addr, err := net.ResolveUDPAddr("udp", addrStr)
 	if err != nil {
 		fmt.Println(err)
