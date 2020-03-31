@@ -22,8 +22,8 @@ func init()  {
 
 func send(conn *net.UDPConn, dataCh chan string)  {
 
-	sender := udpTest.Data{ClientId:ClientId}
-	addr, err := net.ResolveUDPAddr("udp", udpTest.SERVER_IP + ":" + strconv.Itoa(udpTest.SERVER_PORT))
+	sender := HomeRover.Data{ClientId: ClientId}
+	addr, err := net.ResolveUDPAddr("udp", HomeRover.SERVER_IP + ":" + strconv.Itoa(HomeRover.SERVER_PORT))
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -45,13 +45,13 @@ func send(conn *net.UDPConn, dataCh chan string)  {
 }
 
 func server(conn *net.UDPConn) {
-	sender := udpTest.Data{Type:"serverReq", ClientId:ClientId}
+	sender := HomeRover.Data{Type: "serverReq", ClientId:ClientId}
 	sendData, err := json.Marshal(sender)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	addrStr := udpTest.SERVER_IP + ":" + strconv.Itoa(udpTest.SERVER_PORT)
+	addrStr := HomeRover.SERVER_IP + ":" + strconv.Itoa(HomeRover.SERVER_PORT)
 	addr, err := net.ResolveUDPAddr("udp", addrStr)
 	if err != nil {
 		fmt.Println(err)
@@ -69,9 +69,9 @@ func server(conn *net.UDPConn) {
 
 func receive(conn *net.UDPConn, dataMap *map[string]interface{}, isReady *bool)  {
 
-	receiver := udpTest.Data{}
-	sender := udpTest.Data{ClientId:ClientId}
-	addr, err := net.ResolveUDPAddr("udp", udpTest.SERVER_IP + ":" + strconv.Itoa(udpTest.SERVER_PORT))
+	receiver := HomeRover.Data{}
+	sender := HomeRover.Data{ClientId: ClientId}
+	addr, err := net.ResolveUDPAddr("udp", HomeRover.SERVER_IP + ":" + strconv.Itoa(HomeRover.SERVER_PORT))
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -153,8 +153,8 @@ func inputData()  {
 }
 
 func establishConn(conn *net.UDPConn, isReady *bool)  {
-	sender := udpTest.Data{ClientId:ClientId}
-	addr, err := net.ResolveUDPAddr("udp", udpTest.SERVER_IP + ":" + strconv.Itoa(udpTest.SERVER_PORT))
+	sender := HomeRover.Data{ClientId: ClientId}
+	addr, err := net.ResolveUDPAddr("udp", HomeRover.SERVER_IP + ":" + strconv.Itoa(HomeRover.SERVER_PORT))
 	if err != nil {
 		fmt.Println(err)
 	}

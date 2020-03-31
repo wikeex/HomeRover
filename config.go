@@ -1,4 +1,4 @@
-package udpTest
+package HomeRover
 
 const (
 	SERVER_IP       = "140.143.99.31"
