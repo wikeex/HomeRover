@@ -7,10 +7,11 @@ import (
 	"os"
 	"strconv"
 	"udpTest"
+	"udpTest/models"
 )
 
 func main()  {
-	links := make(map[string]HomeRover.ClientOnServer)
+	links := make(map[string]models.ClientOnServer)
 
 	serverAddrStr := "0.0.0.0" + ":" + strconv.Itoa(HomeRover.SERVER_PORT)
 	serverAddr, err := net.ResolveUDPAddr("udp", serverAddrStr)
@@ -27,7 +28,7 @@ func main()  {
 
 	defer conn.Close()
 
-	receiveMap := HomeRover.Data{}
+	receiveMap := models.Data{}
 	sendMap := make(map[string]interface{})
 	sendMap["type"] = "serverResp"
 
@@ -52,7 +53,7 @@ func main()  {
 			client.Address = rAddr.String()
 			UpdateDest(&links)
 		} else {
-			links[receiveMap.ClientId] = HomeRover.ClientOnServer{Id: receiveMap.ClientId, Address: rAddr.String()}
+			links[receiveMap.ClientId] = models.ClientOnServer{Id: receiveMap.ClientId, Address: rAddr.String()}
 			UpdateDest(&links)
 		}
 
@@ -74,12 +75,12 @@ func main()  {
 	}
 }
 
-func UpdateDest(links *map[string]HomeRover.ClientOnServer)  {
+func UpdateDest(links *map[string]models.ClientOnServer)  {
 	for _, clientA := range *links {
-		tempClient := HomeRover.ClientOnServer{Id: clientA.Id, Address:clientA.Address}
+		tempClient := models.ClientOnServer{Id: clientA.Id, Address:clientA.Address}
 		for _, clientB := range *links {
 			if clientA.Id != clientB.Id {
-				tempClient.Destination = append(tempClient.Destination, HomeRover.Destination{Id: clientB.Id, Address:clientB.Address})
+				tempClient.Destination = append(tempClient.Destination, models.Destination{Id: clientB.Id, Address:clientB.Address})
 			}
 		}
 		(*links)[clientA.Id] = tempClient

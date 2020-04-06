@@ -1,4 +1,4 @@
-package HomeRover
+package models
 
 import "net"
 

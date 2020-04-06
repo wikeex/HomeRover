@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 	"udpTest"
+	"udpTest/models"
 )
 
 var ClientId string
@@ -20,9 +21,13 @@ func init()  {
 	ClientId = strconv.Itoa(rand.Int())
 }
 
-func send(conn *net.UDPConn, addr **net.UDPAddr, dataCh chan string)  {
+func send(conn *net.UDPConn, dataCh chan string)  {
 
-	sender := HomeRover.Data{ClientId: ClientId}
+	sender := models.Data{ClientId: ClientId}
+	addr, err := net.ResolveUDPAddr("udp", HomeRover.SERVER_IP + ":" + strconv.Itoa(HomeRover.SERVER_PORT))
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	sender.Type = "send"
 
@@ -30,7 +35,7 @@ func send(conn *net.UDPConn, addr **net.UDPAddr, dataCh chan string)  {
 		sender.Timestamp = time.Now().UnixNano()
 		sender.Data = <- dataCh
 		data, _ := json.Marshal(sender)
-		_, err := conn.WriteToUDP(data, *addr)
+		_, err := conn.WriteToUDP(data, addr)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -40,8 +45,8 @@ func send(conn *net.UDPConn, addr **net.UDPAddr, dataCh chan string)  {
 	}
 }
 
-func server(conn *net.UDPConn, beatCount *int) {
-	sender := HomeRover.Data{Type: "serverReq", ClientId:ClientId}
+func server(conn *net.UDPConn) {
+	sender := models.Data{Type: "serverReq", ClientId:ClientId}
 	sendData, err := json.Marshal(sender)
 	if err != nil {
 		fmt.Println(err)
@@ -59,15 +64,18 @@ func server(conn *net.UDPConn, beatCount *int) {
 			fmt.Println(err)
 		}
 
-		*beatCount--
 		time.Sleep(time.Second)
 	}
 }
 
-func receive(conn *net.UDPConn, addr **net.UDPAddr, isReady *bool, dataMap *map[string]interface{})  {
+func receive(conn *net.UDPConn, dataMap *map[string]interface{}, isReady *bool)  {
 
-	receiver := HomeRover.Data{}
-	sender := HomeRover.Data{ClientId: ClientId}
+	receiver := models.Data{}
+	sender := models.Data{ClientId: ClientId}
+	addr, err := net.ResolveUDPAddr("udp", HomeRover.SERVER_IP + ":" + strconv.Itoa(HomeRover.SERVER_PORT))
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	for {
 		receiveData := make([]byte, 548)
@@ -87,30 +95,18 @@ func receive(conn *net.UDPConn, addr **net.UDPAddr, isReady *bool, dataMap *map[
 		fmt.Println("receive data: " + string(receiveData))
 
 		switch receiver.Type {
-		case "serverResp":
-			if receiver.Data == "" {
-				break
-			}
-
-			*addr, err = net.ResolveUDPAddr("udp", receiver.Data)
-			if err != nil {
-				fmt.Println(err)
-			}
-		case "probe":
-			sender.Type = "probeResp"
-			sendData, _ := json.Marshal(sender)
-			_, err = conn.WriteToUDP(sendData, *addr)
-		case "probeResp":
-			*isReady = true
 		case "send":
 			sender.Type = "receipt"
 			sender.Data = receiver.Data
 			sender.Timestamp = receiver.Timestamp
 			sendData, _ := json.Marshal(sender)
-			_, err = conn.WriteToUDP(sendData, *addr)
+			_, err = conn.WriteToUDP(sendData, addr)
 		case "receipt":
 			// 计算丢包率
 			mux.Lock()
+			if _, ok := (*dataMap)[receiver.Data]; !ok {
+				break
+			}
 			delete(*dataMap, receiver.Data)
 			missingRatio := float32(len(*dataMap) - 11) / float32(((*dataMap)["count"]).(int64))
 			mux.Unlock()
@@ -118,28 +114,18 @@ func receive(conn *net.UDPConn, addr **net.UDPAddr, isReady *bool, dataMap *map[
 			fmt.Println(time.Now().UnixNano() - receiver.Timestamp)
 			fmt.Printf("丢包率：%.6f%%", missingRatio * 100)
 			fmt.Println("")
+		case "conn":
+			sender.Type = "connResp"
+			sendData, _ := json.Marshal(sender)
+			_, err = conn.WriteToUDP(sendData, addr)
+		case "connResp":
+			mux.Lock()
+			*isReady = true
+			mux.Unlock()
 		}
 
 	}
 
-}
-
-func sendProbe(conn *net.UDPConn, addr **net.UDPAddr, isReady *bool)  {
-	sender := HomeRover.Data{Type: "probe", ClientId:ClientId}
-	sendData, err := json.Marshal(sender)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	for !*isReady {
-		_, err = conn.WriteToUDP(sendData, *addr)
-		if err != nil {
-			fmt.Println(err)
-		}
-		fmt.Println("sendProbe: " + string(sendData))
-
-		time.Sleep(50 * time.Millisecond)
-	}
 }
 
 func genData(sendDataCh chan string, dataMap *map[string]interface{})  {
@@ -167,9 +153,30 @@ func inputData()  {
 
 }
 
+func establishConn(conn *net.UDPConn, isReady *bool)  {
+	sender := models.Data{ClientId: ClientId}
+	addr, err := net.ResolveUDPAddr("udp", HomeRover.SERVER_IP + ":" + strconv.Itoa(HomeRover.SERVER_PORT))
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	sender.Type = "conn"
+
+	for !(*isReady) {
+		sender.Timestamp = time.Now().UnixNano()
+		data, _ := json.Marshal(sender)
+		_, err := conn.WriteToUDP(data, addr)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		fmt.Println("establish connection data: " + string(data))
+		time.Sleep(time.Second)
+	}
+}
 
 func main()  {
-	localAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:18801")
+	localAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:18800")
 
 	conn, err := net.ListenUDP("udp", localAddr)
 	if err != nil {
@@ -179,17 +186,14 @@ func main()  {
 
 	defer conn.Close()
 
-	var addr *net.UDPAddr
-
-	beatCount := 10
 	sendDataCh := make(chan string, 10)
-	isReady := false
 	dataMap := make(map[string]interface{})
+	isReady := false
 
-	go server(conn, &beatCount)
-	go receive(conn, &addr, &isReady, &dataMap)
-	sendProbe(conn, &addr, &isReady)
-	go send(conn, &addr, sendDataCh)
+	go server(conn)
+	go receive(conn, &dataMap, &isReady)
+	establishConn(conn, &isReady)
+	go send(conn, sendDataCh)
 
 	go inputData()
 	genData(sendDataCh, &dataMap)
