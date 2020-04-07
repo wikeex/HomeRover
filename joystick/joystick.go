@@ -1,13 +1,24 @@
 package joystick
 
 import (
+	"HomeRover/models"
 	"HomeRover/utils"
 	"fmt"
 	"github.com/karalabe/hid"
 	"strconv"
+	"sync"
+	"time"
 )
 
-func GetJoystick() (*hid.Device, error) {
+type Joystick struct {
+	conf 		models.ControllerConfig
+	confMu 		*sync.RWMutex
+	deviceMu 	*sync.RWMutex
+	data 		chan []byte
+	device 		*hid.Device
+}
+
+func (js *Joystick) Init() error {
 	devices := hid.Enumerate(0, 0)
 	var controller *hid.Device
 
@@ -16,7 +27,7 @@ func GetJoystick() (*hid.Device, error) {
 			var err error
 			controller, err = device.Open()
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
@@ -29,26 +40,29 @@ func GetJoystick() (*hid.Device, error) {
 		var selectNumStr string
 		_, err := fmt.Scanln(&selectNumStr)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		selectNum, err := strconv.Atoi(selectNumStr)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		fmt.Printf("%s select\n", devices[selectNum].Product)
 		controller, err = (devices[selectNum]).Open()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-
-	return controller, nil
+	js.device = controller
+	return nil
 }
 
-func ReadOnce(controller *hid.Device) ([]byte, error) {
+func (js *Joystick) ReadOnce() ([]byte, error) {
 	data := make([]byte, 14, 100)
 
-	_, err := controller.Read(data)
+	js.deviceMu.Lock()
+	_, err := js.device.Read(data)
+	js.deviceMu.Unlock()
+
 	if err != nil {
 		return nil, err
 	}
@@ -83,4 +97,17 @@ func ReadOnce(controller *hid.Device) ([]byte, error) {
 		byte(int8(rightStickX >> 8)),
 		byte(int8(rightStickY >> 8)),
 	}, nil
+}
+
+func (js *Joystick) Run()  {
+	js.confMu.Lock()
+	defer js.confMu.Unlock()
+	freq := js.conf.Joystick.ReadFreq
+	for range time.Tick(time.Duration(1000000000 / freq)){
+		deviceData, err := js.ReadOnce()
+		if err != nil {
+			continue
+		}
+		js.data <- deviceData
+	}
 }

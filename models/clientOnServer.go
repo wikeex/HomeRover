@@ -16,7 +16,6 @@ type Destination struct {
 	Address *net.UDPAddr `json:"address"`
 }
 
-
 type ClientOnServer struct {
 	Id string `json:"Id"`
 	Destination []Destination `json:"destination"`
