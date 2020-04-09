@@ -1,7 +1,7 @@
 package joystick
 
 import (
-	"HomeRover/models"
+	"HomeRover/models/config"
 	"HomeRover/utils"
 	"fmt"
 	"github.com/karalabe/hid"
@@ -11,11 +11,19 @@ import (
 )
 
 type Joystick struct {
-	conf 		models.ControllerConfig
-	confMu 		*sync.RWMutex
-	deviceMu 	*sync.RWMutex
-	data 		chan []byte
-	device 		*hid.Device
+	Conf     *config.ControllerConfig
+	confMu   sync.RWMutex
+	deviceMu sync.RWMutex
+	Data     *chan []byte
+	device   *hid.Device
+}
+
+func NewJoystick(conf *config.ControllerConfig, data *chan []byte) (js *Joystick, err error) {
+	js = &Joystick{
+		Conf:     conf,
+		Data:     data,
+	}
+	return
 }
 
 func (js *Joystick) Init() error {
@@ -102,12 +110,12 @@ func (js *Joystick) ReadOnce() ([]byte, error) {
 func (js *Joystick) Run()  {
 	js.confMu.Lock()
 	defer js.confMu.Unlock()
-	freq := js.conf.Joystick.ReadFreq
+	freq := js.Conf.JoystickFreq
 	for range time.Tick(time.Duration(1000000000 / freq)){
 		deviceData, err := js.ReadOnce()
 		if err != nil {
 			continue
 		}
-		js.data <- deviceData
+		*js.Data <- deviceData
 	}
 }
