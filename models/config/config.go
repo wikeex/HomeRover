@@ -11,6 +11,8 @@ type ControllerConfig struct {
 	ServerPort		int			`json:"serverPort"`
 	LocalPort		int			`json:"localPort"`
 	JoystickFreq	int			`json:"joystickFreq"`
+	PackageLen		int			`json:"packageLen"`
+	ControllerId	int			`json:"controllerId"`
 }
 
 func GetDefaultControllerConfig() ControllerConfig {
@@ -19,6 +21,7 @@ func GetDefaultControllerConfig() ControllerConfig {
 		ServerPort:		10006,
 		LocalPort: 		18000,
 		JoystickFreq: 	50,
+		PackageLen: 	548,
 	}
 }
 
@@ -62,6 +65,24 @@ func ControllerConfigInit(filePath string) (controllerConfig ControllerConfig, e
 			return
 		}
 		controllerConf.JoystickFreq = value
+	}
+
+	if tempString, ok = conf.Get("common", "packageLen"); ok {
+		value, err = strconv.Atoi(tempString)
+		if err != nil {
+			return
+		}
+		controllerConf.PackageLen = value
+	}
+
+	if tempString, ok = conf.Get("common", "ControllerId"); ok {
+		value, err = strconv.Atoi(tempString)
+		if err != nil {
+			return
+		}
+		controllerConf.ControllerId = value
+	} else {
+		panic("'ControllerId' variable missing from 'common' section")
 	}
 
 	return

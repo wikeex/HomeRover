@@ -60,7 +60,7 @@ func main()  {
 			}
 
 			if len(links[receiveMap.ClientId].Destination) > 0 {
-				sendMap["data"] = (links[receiveMap.ClientId].Destination)[0].Address.String()
+				sendMap["pack"] = (links[receiveMap.ClientId].Destination)[0].Address.String()
 			}
 			sendData, err := json.Marshal(sendMap)
 			if err != nil {

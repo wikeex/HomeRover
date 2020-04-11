@@ -36,7 +36,7 @@ func send(conn *net.UDPConn, addr **net.UDPAddr, dataCh chan string)  {
 			fmt.Println(err)
 		}
 
-		fmt.Println("send data: " + string(data))
+		fmt.Println("send pack: " + string(data))
 		time.Sleep(time.Second)
 	}
 }
@@ -85,7 +85,7 @@ func receive(conn *net.UDPConn, addr **net.UDPAddr, isReady *bool, dataMap *map[
 			continue
 		}
 
-		fmt.Println("receive data: " + string(receiveData))
+		fmt.Println("receive pack: " + string(receiveData))
 
 		switch receiver.Type {
 		case "serverResp":
