@@ -2,27 +2,17 @@ package controller
 
 import (
 	"HomeRover/models/config"
+	"HomeRover/models/consts"
 	"HomeRover/models/pack"
-	"encoding/binary"
 	"fmt"
 	"math/rand"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 )
 
-const (
-	ServerSend = iota
-	SERVER_RECV
-	CONTROLLER_SEND
-	CONTROLLER_RECV
-	VIDEO_SEND
-	VIDEO_RECV
-	AUDIO_END
-	AUDIO_RECV
-)
-
-func allocatePort(conn *net.UDPConn) error {
+func allocatePort(conn *net.UDPConn) (*net.UDPAddr, error) {
 	rand.Seed(time.Now().UnixNano())
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%d", rand.Intn(55535) + 10000))
 	if err != nil {
@@ -30,67 +20,57 @@ func allocatePort(conn *net.UDPConn) error {
 	}
 	conn, err = net.ListenUDP("udp", addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return addr, nil
 }
 
 type Service struct {
 	conf 					*config.ControllerConfig
 
-	serverConn 				*net.UDPConn
-	controllerSendConn		*net.UDPConn
-	controllerRecvConn		*net.UDPConn
-	videoSendConn			*net.UDPConn
-	videoRecvConn			*net.UDPConn
-	audioSendConn			*net.UDPConn
-	audioRecvConn			*net.UDPConn
+	joystickData			*chan []byte
 
-	roverControllerAddr		*net.UDPAddr
-	roverVideoAddr			*net.UDPAddr
-	roverAudioAddr			*net.UDPAddr
+	serverConn 				*net.UDPConn
+	cmdConn					*net.UDPConn
+	videoConn				*net.UDPConn
+	audioConn				*net.UDPConn
+
+	roverAddr				pack.AddrInfo
+	localAddr				pack.AddrInfo
+	addrMu					sync.RWMutex
 }
 
 func (s *Service) initConn() error {
-	err := allocatePort(s.serverConn)
+	_, err := allocatePort(s.serverConn)
 	if err != nil {
 		return err
 	}
-	err = allocatePort(s.controllerSendConn)
+	s.localAddr.CmdAddr, err = allocatePort(s.cmdConn)
 	if err != nil {
 		return err
 	}
-	err = allocatePort(s.controllerRecvConn)
+	s.localAddr.VideoAddr, err = allocatePort(s.videoConn)
 	if err != nil {
 		return err
 	}
-	err = allocatePort(s.videoSendConn)
+	s.localAddr.AudioAddr, err = allocatePort(s.audioConn)
 	if err != nil {
 		return err
 	}
-	err = allocatePort(s.videoRecvConn)
-	if err != nil {
-		return err
-	}
-	err = allocatePort(s.audioSendConn)
-	if err != nil {
-		return err
-	}
-	err = allocatePort(s.audioRecvConn)
-	if err != nil {
-		return err
-	}
+
 	return nil
 }
 
-func (s *Service) serverHeartbeat()  {
-	var controllerId []byte
-
-	binary.BigEndian.PutUint16(controllerId, uint16(s.conf.ControllerId))
+func (s *Service) serverSend()  {
+	s.localAddr.Id = uint16(s.conf.ControllerId)
+	addrBytes, err := s.localAddr.Package()
+	if err != nil {
+		fmt.Println(err)
+	}
 	sendObject := pack.Data{
-		Type:    		ServerSend,
+		Type:    		consts.ServerSend,
 		OrderNum:     	0,
-		Payload: 		controllerId,
+		Payload: 		addrBytes,
 	}
 
 	sendData := sendObject.Package()
@@ -111,7 +91,7 @@ func (s *Service) serverHeartbeat()  {
 	}
 }
 
-func (s *Service) serverRecv(ch chan []byte)  {
+func (s *Service) serverRecv()  {
 	receiveData := make([]byte, s.conf.PackageLen)
 	data := pack.Data{}
 
@@ -124,6 +104,61 @@ func (s *Service) serverRecv(ch chan []byte)  {
 		if err != nil {
 			fmt.Println(err)
 		}
-		ch <- data.Payload
+
+		if data.Type == consts.ServerRecv {
+			s.addrMu.Lock()
+			err = s.roverAddr.UnPackage(data.Payload)
+			if err != nil {
+				fmt.Println(err)
+			}
+			s.addrMu.Unlock()
+		}
+	}
+}
+
+func (s *Service) cmdSend()  {
+	sendObject := pack.Data{
+		Type:     consts.ControllerCmd,
+		OrderNum: 0,
+		Payload:  nil,
+	}
+
+	var (
+		sendData 	[]byte
+		err			error
+	)
+
+	for {
+		sendObject.Payload =  <- *s.joystickData
+		sendData = sendObject.Package()
+		_, err = s.cmdConn.WriteToUDP(sendData, s.roverAddr.CmdAddr)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+}
+
+func (s *Service) cmdRecv()  {
+	receiveData := make([]byte, s.conf.PackageLen)
+	data := pack.Data{}
+
+	for {
+		_, _, err := s.cmdConn.ReadFromUDP(receiveData)
+		if err != nil {
+			fmt.Println(err)
+		}
+		err = data.UnPackage(receiveData)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if data.Type == consts.RoverCmd {
+			s.addrMu.Lock()
+			err = s.roverAddr.UnPackage(data.Payload)
+			if err != nil {
+				fmt.Println(err)
+			}
+			s.addrMu.Unlock()
+		}
 	}
 }

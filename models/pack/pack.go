@@ -38,10 +38,10 @@ func (d Data) UnPackage(b []byte) error {
 
 
 type AddrInfo struct {
-	DestId				uint16
+	Id				uint16
 
 	// every addr takes 6 Bytes, 4 Bytes for IP, 2 Bytes for Port
-	Addr				*net.UDPAddr
+	CmdAddr				*net.UDPAddr
 	VideoAddr			*net.UDPAddr
 	AudioAddr			*net.UDPAddr
 }
@@ -50,45 +50,50 @@ func (a AddrInfo) Package() ([]byte, error) {
 	var buffer bytes.Buffer
 
 	destIdBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(destIdBytes, a.DestId)
+	binary.BigEndian.PutUint16(destIdBytes, a.Id)
 	buffer.Write(destIdBytes)
 
-	addrBytes, err := addrToBytes(a.Addr)
-	if err != nil {
-		return nil, err
-	}
-	videoAddrBytes, err := addrToBytes(a.VideoAddr)
-	if err != nil {
-		return nil, err
-	}
-	audioAddrBytes, err := addrToBytes(a.AudioAddr)
+	cmdBytes, err := addrToBytes(a.CmdAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	buffer.Write(addrBytes)
-	buffer.Write(videoAddrBytes)
-	buffer.Write(audioAddrBytes)
+	videoBytes, err := addrToBytes(a.VideoAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	audioBytes, err := addrToBytes(a.AudioAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	buffer.Write(cmdBytes)
+	buffer.Write(videoBytes)
+	buffer.Write(audioBytes)
 
 	return buffer.Bytes(), nil
 }
 
 func (a AddrInfo) UnPackage(b []byte) error {
 	var err error
-	a.Addr, err = bytesToAddr(b[:6])
+	a.Id = binary.BigEndian.Uint16(b[:2])
+
+	a.CmdAddr, err = bytesToAddr(b[2:8])
 	if err != nil {
 		return err
 	}
 
-	a.VideoAddr, err = bytesToAddr(b[6:12])
+	a.VideoAddr, err = bytesToAddr(b[8:14])
 	if err != nil {
 		return err
 	}
 
-	a.AudioAddr, err = bytesToAddr(b[12:18])
+	a.AudioAddr, err = bytesToAddr(b[14:20])
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
