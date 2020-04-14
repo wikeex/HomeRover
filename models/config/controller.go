@@ -1,6 +1,7 @@
 package config
 
 import (
+	"HomeRover/models/mode"
 	"github.com/vaughan0/go-ini"
 	"strconv"
 	"strings"
@@ -13,6 +14,12 @@ type ControllerConfig struct {
 	JoystickFreq	int			`json:"joystickFreq"`
 	PackageLen		int			`json:"packageLen"`
 	ControllerId	int			`json:"controllerId"`
+	GroupId			int			`json:"groupId"`
+
+	Trans 		mode.Trans
+	CmdMode   		mode.TransMode 	`json:"cmd"`
+	VideMode  		mode.TransMode 	`json:"video"`
+	AudioMode 		mode.TransMode 	`json:"audio"`
 }
 
 func GetDefaultControllerConfig() ControllerConfig {
@@ -22,11 +29,15 @@ func GetDefaultControllerConfig() ControllerConfig {
 		LocalPort: 		18000,
 		JoystickFreq: 	50,
 		PackageLen: 	548,
+
+		CmdMode: 		false,
+		VideMode: 		false,
+		AudioMode: 		false,
 	}
 }
 
-func ControllerConfigInit(filePath string) (controllerConfig ControllerConfig, err error) {
-	controllerConf := GetDefaultControllerConfig()
+func ControllerConfigInit(filePath string) (controllerConf ControllerConfig, err error) {
+	controllerConf = GetDefaultControllerConfig()
 
 	conf, err := ini.Load(strings.NewReader(filePath))
 	if err != nil {
@@ -37,6 +48,7 @@ func ControllerConfigInit(filePath string) (controllerConfig ControllerConfig, e
 		tempString		string
 		ok				bool
 		value			int
+		boolValue		bool
 	)
 
 	if tempString, ok = conf.Get("common", "serverIp"); ok {
@@ -83,6 +95,46 @@ func ControllerConfigInit(filePath string) (controllerConfig ControllerConfig, e
 		controllerConf.ControllerId = value
 	} else {
 		panic("'ControllerId' variable missing from 'common' section")
+	}
+
+	if tempString, ok = conf.Get("common", "groupId"); ok {
+		value, err = strconv.Atoi(tempString)
+		if err != nil {
+			return
+		}
+		controllerConf.ControllerId = value
+	} else {
+		panic("'groupId' variable missing from 'common' section")
+	}
+
+	if tempString, ok = conf.Get("mode", "cmd"); ok {
+		boolValue, err = strconv.ParseBool(tempString)
+		if err != nil {
+			return
+		}
+		controllerConf.CmdMode = mode.TransMode(boolValue)
+	}
+
+	if tempString, ok = conf.Get("mode", "video"); ok {
+		boolValue, err = strconv.ParseBool(tempString)
+		if err != nil {
+			return
+		}
+		controllerConf.VideMode = mode.TransMode(boolValue)
+	}
+
+	if tempString, ok = conf.Get("mode", "audio"); ok {
+		boolValue, err = strconv.ParseBool(tempString)
+		if err != nil {
+			return
+		}
+		controllerConf.AudioMode = mode.TransMode(boolValue)
+	}
+
+	controllerConf.TransMode = mode.Trans{
+		Cmd: 		controllerConf.CmdMode,
+		Video:		controllerConf.VideMode,
+		Audio: 		controllerConf.AudioMode,
 	}
 
 	return

@@ -1,12 +1,26 @@
 package consts
 
+// package type
 const (
-	ServerSend = iota
-	ServerRecv
+	ControllerServe = iota
+	RoverServe
+	ServerResp
 	ControllerCmd
 	RoverCmd
 	ControllerVideo
 	RoverVideo
 	ControllerAudio
 	RoverAudio
+)
+
+// transmission mode
+const (
+	HoldPunching = true
+	ServerForwarding = false
+)
+
+// client state
+const (
+	Online = iota
+	Offline
 )

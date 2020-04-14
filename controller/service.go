@@ -4,6 +4,7 @@ import (
 	"HomeRover/models/config"
 	"HomeRover/models/consts"
 	"HomeRover/models/pack"
+	"HomeRover/models/server"
 	"fmt"
 	"math/rand"
 	"net"
@@ -63,12 +64,14 @@ func (s *Service) initConn() error {
 
 func (s *Service) serverSend()  {
 	s.localAddr.Id = uint16(s.conf.ControllerId)
+	s.localAddr.Trans = s.conf.Trans
+
 	addrBytes, err := s.localAddr.Package()
 	if err != nil {
 		fmt.Println(err)
 	}
 	sendObject := pack.Data{
-		Type:    		consts.ServerSend,
+		Type:    		consts.ControllerServe,
 		OrderNum:     	0,
 		Payload: 		addrBytes,
 	}
@@ -94,6 +97,7 @@ func (s *Service) serverSend()  {
 func (s *Service) serverRecv()  {
 	receiveData := make([]byte, s.conf.PackageLen)
 	data := pack.Data{}
+	rover := server.Client{}
 
 	for {
 		_, _, err := s.serverConn.ReadFromUDP(receiveData)
@@ -105,12 +109,17 @@ func (s *Service) serverRecv()  {
 			fmt.Println(err)
 		}
 
-		if data.Type == consts.ServerRecv {
+		if data.Type == consts.ServerResp {
 			s.addrMu.Lock()
-			err = s.roverAddr.UnPackage(data.Payload)
+			err = rover.FromBytes(data.Payload)
 			if err != nil {
 				fmt.Println(err)
 			}
+			if rover.State != consts.Online {
+				s.addrMu.Unlock()
+				continue
+			}
+			s.roverAddr = rover.Info
 			s.addrMu.Unlock()
 		}
 	}
@@ -138,7 +147,7 @@ func (s *Service) cmdSend()  {
 	}
 }
 
-func (s *Service) cmdRecv()  {
+func (s *Service) cmdRecv() {
 	receiveData := make([]byte, s.conf.PackageLen)
 	data := pack.Data{}
 
@@ -153,12 +162,22 @@ func (s *Service) cmdRecv()  {
 		}
 
 		if data.Type == consts.RoverCmd {
-			s.addrMu.Lock()
-			err = s.roverAddr.UnPackage(data.Payload)
-			if err != nil {
-				fmt.Println(err)
-			}
-			s.addrMu.Unlock()
+			fmt.Println("rover cmd received")
 		}
 	}
+}
+
+func (s *Service) Run() error {
+	err := s.initConn()
+	if err != nil {
+		return err
+	}
+
+	go s.serverSend()
+	go s.serverRecv()
+
+	go s.cmdSend()
+	go s.cmdRecv()
+
+	return nil
 }
