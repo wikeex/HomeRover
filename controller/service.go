@@ -1,10 +1,10 @@
 package controller
 
 import (
+	"HomeRover/models/client"
 	"HomeRover/models/config"
 	"HomeRover/models/consts"
-	"HomeRover/models/pack"
-	"HomeRover/models/server"
+	"HomeRover/models/data"
 	"fmt"
 	"math/rand"
 	"net"
@@ -36,9 +36,10 @@ type Service struct {
 	videoConn				*net.UDPConn
 	audioConn				*net.UDPConn
 
-	roverAddr				pack.AddrInfo
-	localAddr				pack.AddrInfo
-	addrMu					sync.RWMutex
+	rover     				*client.Client
+	roverMu   				sync.RWMutex
+	localInfo 				client.Info
+	addrMu    				sync.RWMutex
 }
 
 func (s *Service) initConn() error {
@@ -46,15 +47,15 @@ func (s *Service) initConn() error {
 	if err != nil {
 		return err
 	}
-	s.localAddr.CmdAddr, err = allocatePort(s.cmdConn)
+	s.localInfo.CmdAddr, err = allocatePort(s.cmdConn)
 	if err != nil {
 		return err
 	}
-	s.localAddr.VideoAddr, err = allocatePort(s.videoConn)
+	s.localInfo.VideoAddr, err = allocatePort(s.videoConn)
 	if err != nil {
 		return err
 	}
-	s.localAddr.AudioAddr, err = allocatePort(s.audioConn)
+	s.localInfo.AudioAddr, err = allocatePort(s.audioConn)
 	if err != nil {
 		return err
 	}
@@ -63,20 +64,20 @@ func (s *Service) initConn() error {
 }
 
 func (s *Service) serverSend()  {
-	s.localAddr.Id = uint16(s.conf.ControllerId)
-	s.localAddr.Trans = s.conf.Trans
+	s.localInfo.Id = uint16(s.conf.ControllerId)
+	s.localInfo.Trans = s.conf.Trans
 
-	addrBytes, err := s.localAddr.Package()
+	addrBytes, err := s.localInfo.ToBytes()
 	if err != nil {
 		fmt.Println(err)
 	}
-	sendObject := pack.Data{
+	sendObject := data.Data{
 		Type:    		consts.ControllerServe,
 		OrderNum:     	0,
 		Payload: 		addrBytes,
 	}
 
-	sendData := sendObject.Package()
+	sendData := sendObject.ToBytes()
 
 	addrStr := s.conf.ServerIP + ":" + strconv.Itoa(s.conf.ServerPort)
 	addr, err := net.ResolveUDPAddr("udp", addrStr)
@@ -90,43 +91,40 @@ func (s *Service) serverSend()  {
 			fmt.Println(err)
 		}
 		sendObject.OrderNum++
-		sendData = sendObject.Package()
+		sendData = sendObject.ToBytes()
 	}
 }
 
 func (s *Service) serverRecv()  {
 	receiveData := make([]byte, s.conf.PackageLen)
-	data := pack.Data{}
-	rover := server.Client{}
+	RecvData := data.Data{}
 
 	for {
 		_, _, err := s.serverConn.ReadFromUDP(receiveData)
 		if err != nil {
 			fmt.Println(err)
 		}
-		err = data.UnPackage(receiveData)
+		err = RecvData.FromBytes(receiveData)
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		if data.Type == consts.ServerResp {
-			s.addrMu.Lock()
-			err = rover.FromBytes(data.Payload)
+		if RecvData.Type == consts.ServerResp {
+			s.roverMu.Lock()
+			err = s.rover.FromBytes(RecvData.Payload)
 			if err != nil {
 				fmt.Println(err)
 			}
-			if rover.State != consts.Online {
-				s.addrMu.Unlock()
-				continue
+			s.roverMu.Unlock()
+			if s.rover.State == consts.Offline {
+				fmt.Println("rover is offline")
 			}
-			s.roverAddr = rover.Info
-			s.addrMu.Unlock()
 		}
 	}
 }
 
 func (s *Service) cmdSend()  {
-	sendObject := pack.Data{
+	sendObject := data.Data{
 		Type:     consts.ControllerCmd,
 		OrderNum: 0,
 		Payload:  nil,
@@ -139,29 +137,33 @@ func (s *Service) cmdSend()  {
 
 	for {
 		sendObject.Payload =  <- *s.joystickData
-		sendData = sendObject.Package()
-		_, err = s.cmdConn.WriteToUDP(sendData, s.roverAddr.CmdAddr)
-		if err != nil {
-			fmt.Println(err)
+		s.roverMu.RLock()
+		if s.rover.State == consts.Online {
+			sendData = sendObject.ToBytes()
+			_, err = s.cmdConn.WriteToUDP(sendData, s.rover.Info.CmdAddr)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
+		s.roverMu.RUnlock()
 	}
 }
 
 func (s *Service) cmdRecv() {
 	receiveData := make([]byte, s.conf.PackageLen)
-	data := pack.Data{}
+	recvData := data.Data{}
 
 	for {
 		_, _, err := s.cmdConn.ReadFromUDP(receiveData)
 		if err != nil {
 			fmt.Println(err)
 		}
-		err = data.UnPackage(receiveData)
+		err = recvData.FromBytes(receiveData)
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		if data.Type == consts.RoverCmd {
+		if recvData.Type == consts.RoverCmd {
 			fmt.Println("rover cmd received")
 		}
 	}

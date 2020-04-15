@@ -1,16 +1,15 @@
-package server
+package client
 
 import (
-	"HomeRover/models/pack"
 	"bytes"
 )
 
-type ClientState uint8
+type State uint8
 
 // Controller and Rover are all Client
 type Client struct {
-	State			ClientState
-	Info 			pack.AddrInfo
+	State State
+	Info  Info
 }
 
 func (c Client) ToBytes() ([]byte, error) {
@@ -18,7 +17,7 @@ func (c Client) ToBytes() ([]byte, error) {
 
 	buffer.Write([]byte{byte(c.State)})
 
-	roverInfoBytes, err := c.Info.Package()
+	roverInfoBytes, err := c.Info.ToBytes()
 	if err != nil {
 		return nil, err
 	}
@@ -29,9 +28,9 @@ func (c Client) ToBytes() ([]byte, error) {
 }
 
 func (c Client) FromBytes(b []byte) error {
-	c.State = ClientState(b[0])
+	c.State = State(b[0])
 
-	err := c.Info.UnPackage(b[1:])
+	err := c.Info.FromBytes(b[1:])
 	if err != nil {
 		return err
 	}

@@ -40,7 +40,7 @@ func send(conn *net.UDPConn, dataCh chan string)  {
 			fmt.Println(err)
 		}
 
-		fmt.Println("send pack: " + string(data))
+		fmt.Println("send client: " + string(data))
 		time.Sleep(time.Second)
 	}
 }
@@ -92,7 +92,7 @@ func receive(conn *net.UDPConn, dataMap *map[string]interface{}, isReady *bool) 
 			continue
 		}
 
-		fmt.Println("receive pack: " + string(receiveData))
+		fmt.Println("receive client: " + string(receiveData))
 
 		switch receiver.Type {
 		case "send":
@@ -170,7 +170,7 @@ func establishConn(conn *net.UDPConn, isReady *bool)  {
 			fmt.Println(err)
 		}
 
-		fmt.Println("establish connection pack: " + string(data))
+		fmt.Println("establish connection client: " + string(data))
 		time.Sleep(time.Second)
 	}
 }

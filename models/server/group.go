@@ -1,15 +1,15 @@
-package group
+package server
 
 import (
+	"HomeRover/models/client"
 	"HomeRover/models/mode"
-	"HomeRover/models/server"
 )
 
 type Group struct {
 	Id 			uint16
 
-	Rover 		server.Client
-	Controller 	server.Client
+	Rover      client.Client
+	Controller client.Client
 
 	Trans 		*mode.Trans
 }

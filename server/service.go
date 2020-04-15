@@ -1,10 +1,10 @@
 package server
 
 import (
+	"HomeRover/models/client"
 	"HomeRover/models/config"
 	"HomeRover/models/consts"
-	"HomeRover/models/group"
-	"HomeRover/models/pack"
+	"HomeRover/models/data"
 	"HomeRover/models/server"
 	"fmt"
 	mapset "github.com/deckarep/golang-set"
@@ -16,7 +16,7 @@ type Service struct {
 	conf 				*config.ControllerConfig
 	confMu				sync.RWMutex
 
-	Groups				map[uint16]*group.Group
+	Groups				map[uint16]*server.Group
 	TransMu				sync.RWMutex
 	clientMu			sync.RWMutex
 
@@ -27,13 +27,13 @@ func (s *Service) init() error {
 	groupSet := mapset.NewSet()
 	groupSet.Add(uint16(1))
 	groupSet.Add(uint16(2))
-	s.Groups[0] = &group.Group{
+	s.Groups[0] = &server.Group{
 		Id: 0,
-		Rover: server.Client{
-			DestInfo: pack.AddrInfo{Id: 1},
+		Rover: client.Client{
+			Info: client.Info{Id: 1},
 		},
-		Controller: server.Client{
-			DestInfo: pack.AddrInfo{Id: 2},
+		Controller: client.Client{
+			Info: client.Info{Id: 2},
 		},
 	}
 
@@ -54,11 +54,11 @@ func (s *Service) init() error {
 
 func (s *Service)listenClients()  {
 	receiveData := make([]byte, s.conf.PackageLen)
-	data := pack.Data{}
+	recvData := data.Data{}
 	var (
-		err				error
-		addr 			*net.UDPAddr
-		addrInfo		pack.AddrInfo
+		err        error
+		addr       *net.UDPAddr
+		ClientInfo client.Info
 	)
 
 	for {
@@ -66,53 +66,53 @@ func (s *Service)listenClients()  {
 		if err != nil {
 			fmt.Println(err)
 		}
-		err = data.UnPackage(receiveData)
+		err = recvData.FromBytes(receiveData)
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		if data.Type == consts.ControllerServe || data.Type == consts.RoverServe {
+		if recvData.Type == consts.ControllerServe || recvData.Type == consts.RoverServe {
 			fmt.Println("heartbeat received")
-			err = addrInfo.UnPackage(data.Payload)
+			err = ClientInfo.FromBytes(recvData.Payload)
 			if err != nil {
 				fmt.Println(err)
 			}
 
-			if data.Type == consts.ControllerServe {
+			if recvData.Type == consts.ControllerServe {
 				// get the dest client from s.Groups
 				s.clientMu.Lock()
-				s.Groups[addrInfo.GroupId].Controller.Info = addrInfo
-				s.Groups[addrInfo.GroupId].Controller.State = consts.Online
+				s.Groups[ClientInfo.GroupId].Controller.Info = ClientInfo
+				s.Groups[ClientInfo.GroupId].Controller.State = consts.Online
 				s.clientMu.Unlock()
 
 				s.TransMu.Lock()
-				s.Groups[addrInfo.GroupId].Trans = &addrInfo.Trans
+				s.Groups[ClientInfo.GroupId].Trans = &ClientInfo.Trans
 				s.TransMu.Unlock()
 
 				// send rover addr back
-				data.Type = consts.ServerResp
+				recvData.Type = consts.ServerResp
 
-				data.Payload, err = s.Groups[addrInfo.GroupId].Rover.ToBytes()
+				recvData.Payload, err = s.Groups[ClientInfo.GroupId].Rover.ToBytes()
 				if err != nil {
 					fmt.Println(err)
 				}
-			} else if data.Type == consts.RoverServe {
+			} else if recvData.Type == consts.RoverServe {
 				// get the dest client from s.Groups
 				s.clientMu.Lock()
-				s.Groups[addrInfo.GroupId].Rover.Info = addrInfo
-				s.Groups[addrInfo.GroupId].Rover.State = consts.Online
+				s.Groups[ClientInfo.GroupId].Rover.Info = ClientInfo
+				s.Groups[ClientInfo.GroupId].Rover.State = consts.Online
 				s.clientMu.Unlock()
 
 				// send controller addr back
-				data.Type = consts.ServerResp
+				recvData.Type = consts.ServerResp
 
-				data.Payload, err = s.Groups[addrInfo.GroupId].Rover.ToBytes()
+				recvData.Payload, err = s.Groups[ClientInfo.GroupId].Rover.ToBytes()
 				if err != nil {
 					fmt.Println(err)
 				}
 			}
 
-			_, err = s.clientConn.WriteTo(data.Package(), addr)
+			_, err = s.clientConn.WriteTo(recvData.ToBytes(), addr)
 			if err != nil {
 				fmt.Println(err)
 			}

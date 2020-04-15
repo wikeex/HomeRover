@@ -58,7 +58,7 @@ func main()  {
 		}
 
 		if len(links[receiveMap.ClientId].Destination) > 0 {
-			sendMap["pack"] = (links[receiveMap.ClientId].Destination)[0].Address
+			sendMap["client"] = (links[receiveMap.ClientId].Destination)[0].Address
 		}
 		sendData, err := json.Marshal(sendMap)
 		if err != nil {
@@ -71,7 +71,7 @@ func main()  {
 			continue
 		}
 
-		fmt.Println("pack: " + string(sendData) + " to: " + rAddr.String() + "recvData: " + string(receiveData))
+		fmt.Println("client: " + string(sendData) + " to: " + rAddr.String() + "recvData: " + string(receiveData))
 	}
 }
 

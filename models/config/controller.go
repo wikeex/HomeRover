@@ -16,7 +16,7 @@ type ControllerConfig struct {
 	ControllerId	int			`json:"controllerId"`
 	GroupId			int			`json:"groupId"`
 
-	Trans 		mode.Trans
+	Trans 			mode.Trans
 	CmdMode   		mode.TransMode 	`json:"cmd"`
 	VideMode  		mode.TransMode 	`json:"video"`
 	AudioMode 		mode.TransMode 	`json:"audio"`
@@ -131,7 +131,7 @@ func ControllerConfigInit(filePath string) (controllerConf ControllerConfig, err
 		controllerConf.AudioMode = mode.TransMode(boolValue)
 	}
 
-	controllerConf.TransMode = mode.Trans{
+	controllerConf.Trans = mode.Trans{
 		Cmd: 		controllerConf.CmdMode,
 		Video:		controllerConf.VideMode,
 		Audio: 		controllerConf.AudioMode,
