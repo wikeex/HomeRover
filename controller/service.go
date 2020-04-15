@@ -26,17 +26,34 @@ func allocatePort(conn *net.UDPConn) (*net.UDPAddr, error) {
 	return addr, nil
 }
 
+func NewService(conf *config.ControllerConfig, joystickData chan []byte) (service *Service, err error) {
+	service = &Service{
+		conf:         conf,
+		joystickData: joystickData,
+		serverConn:   nil,
+		cmdConn:      nil,
+		videoConn:    nil,
+		audioConn:    nil,
+		rover:        client.Client{},
+		roverMu:      sync.RWMutex{},
+		localInfo:    client.Info{},
+		addrMu:       sync.RWMutex{},
+	}
+
+	return
+}
+
 type Service struct {
 	conf 					*config.ControllerConfig
 
-	joystickData			*chan []byte
+	joystickData			chan []byte
 
 	serverConn 				*net.UDPConn
 	cmdConn					*net.UDPConn
 	videoConn				*net.UDPConn
 	audioConn				*net.UDPConn
 
-	rover     				*client.Client
+	rover     				client.Client
 	roverMu   				sync.RWMutex
 	localInfo 				client.Info
 	addrMu    				sync.RWMutex
@@ -136,7 +153,7 @@ func (s *Service) cmdSend()  {
 	)
 
 	for {
-		sendObject.Payload =  <- *s.joystickData
+		sendObject.Payload =  <- s.joystickData
 		s.roverMu.RLock()
 		if s.rover.State == consts.Online {
 			sendData = sendObject.ToBytes()
@@ -169,10 +186,10 @@ func (s *Service) cmdRecv() {
 	}
 }
 
-func (s *Service) Run() error {
+func (s *Service) Run() {
 	err := s.initConn()
 	if err != nil {
-		return err
+		fmt.Println(err)
 	}
 
 	go s.serverSend()
@@ -180,6 +197,4 @@ func (s *Service) Run() error {
 
 	go s.cmdSend()
 	go s.cmdRecv()
-
-	return nil
 }

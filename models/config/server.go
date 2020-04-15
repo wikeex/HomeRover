@@ -2,17 +2,18 @@ package config
 
 import (
 	"github.com/vaughan0/go-ini"
-	"strconv"
 	"strings"
 )
 
 type ServerConfig struct {
-	LocalPort		int			`json:"localPort"`
+	ServicePort		string		`json:"servicePort"`
+	ForwardPort		string		`json:"forwardPort"`
 }
 
 func GetDefaultServerConfig() ServerConfig {
 	return ServerConfig{
-		LocalPort:  	10006,
+		ServicePort:  	"10006",
+		ForwardPort: 	"10007",
 	}
 }
 
@@ -27,15 +28,14 @@ func ServerConfigInit(filePath string) (serverConf ServerConfig, err error) {
 	var (
 		tempString		string
 		ok				bool
-		value			int
 	)
 
 	if tempString, ok = conf.Get("common", "localPort"); ok {
-		value, err = strconv.Atoi(tempString)
-		if err != nil {
-			return
-		}
-		serverConf.LocalPort = value
+		serverConf.ServicePort = tempString
+	}
+
+	if tempString, ok = conf.Get("common", "forwardPort"); ok {
+		serverConf.ForwardPort = tempString
 	}
 
 	return

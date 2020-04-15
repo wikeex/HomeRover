@@ -1,6 +1,7 @@
 package main
 
 import (
+	"HomeRover/controller"
 	"HomeRover/joystick"
 	"HomeRover/models/config"
 	"fmt"
@@ -13,7 +14,7 @@ func main() {
 	}
 
 	joystickData := make(chan []byte, 1)
-	js, err := joystick.NewJoystick(&conf, &joystickData)
+	js, err := joystick.NewJoystick(&conf, joystickData)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -25,4 +26,10 @@ func main() {
 
 	go js.Run()
 
+	service, err := controller.NewService(&conf, joystickData)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	go service.Run()
 }

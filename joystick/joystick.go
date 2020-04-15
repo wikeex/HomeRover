@@ -14,11 +14,11 @@ type Joystick struct {
 	Conf     *config.ControllerConfig
 	confMu   sync.RWMutex
 	deviceMu sync.RWMutex
-	Data     *chan []byte
+	Data     chan []byte
 	device   *hid.Device
 }
 
-func NewJoystick(conf *config.ControllerConfig, data *chan []byte) (js *Joystick, err error) {
+func NewJoystick(conf *config.ControllerConfig, data chan []byte) (js *Joystick, err error) {
 	js = &Joystick{
 		Conf:     conf,
 		Data:     data,
@@ -116,6 +116,6 @@ func (js *Joystick) Run()  {
 		if err != nil {
 			continue
 		}
-		*js.Data <- deviceData
+		js.Data <- deviceData
 	}
 }
