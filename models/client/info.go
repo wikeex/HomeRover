@@ -1,7 +1,7 @@
 package client
 
 import (
-	"HomeRover/models/consts"
+	"HomeRover/consts"
 	"HomeRover/models/mode"
 	"bytes"
 	"encoding/binary"

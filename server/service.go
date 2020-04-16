@@ -1,9 +1,9 @@
 package server
 
 import (
+	"HomeRover/consts"
 	"HomeRover/models/client"
 	"HomeRover/models/config"
-	"HomeRover/models/consts"
 	"HomeRover/models/data"
 	"HomeRover/models/mode"
 	"HomeRover/models/server"
