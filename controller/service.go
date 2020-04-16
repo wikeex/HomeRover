@@ -147,13 +147,19 @@ func (s *Service) cmdSend()  {
 		Payload:  nil,
 	}
 
+	sendEntity := data.EntityData{
+		GroupId: s.rover.Info.GroupId,
+		Payload: nil,
+	}
+
 	var (
 		sendData 	[]byte
 		err			error
 	)
 
 	for {
-		sendObject.Payload =  <- s.joystickData
+		sendEntity.Payload =  <- s.joystickData
+		sendObject.Payload = sendEntity.ToBytes()
 		s.roverMu.RLock()
 		if s.rover.State == consts.Online {
 			sendData = sendObject.ToBytes()

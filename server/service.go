@@ -135,12 +135,13 @@ func (s *Service)listenClients()  {
 
 func (s *Service) forward()  {
 	recvBytes := make([]byte, s.conf.PackageLen)
-	recvData := data.Data{}
 	var (
 		err			error
 		addr		*net.UDPAddr
-		sendBytes	[]byte
+		recvData	data.Data
+		recvEntity	data.EntityData
 	)
+
 	for {
 		_, _, err = s.serviceConn.ReadFromUDP(recvBytes)
 		if err != nil {
@@ -152,18 +153,27 @@ func (s *Service) forward()  {
 			fmt.Println(err)
 		}
 
-		switch recvData.Type {
-		case consts.ControllerCmd:
-		case consts.ControllerVideo:
-		case consts.ControllerAudio:
-		case consts.RoverCmd:
-		case consts.RoverVideo:
-		case consts.RoverAudio:
+		err = recvEntity.FromBytes(recvData.Payload)
+		if err != nil {
+			fmt.Println(err)
 		}
 
-		sendBytes = recvData.ToBytes()
+		switch recvData.Type {
+		case consts.ControllerCmd:
+			addr = s.Groups[recvEntity.GroupId].Rover.Info.CmdAddr
+		case consts.ControllerVideo:
+			addr = s.Groups[recvEntity.GroupId].Rover.Info.VideoAddr
+		case consts.ControllerAudio:
+			addr = s.Groups[recvEntity.GroupId].Rover.Info.AudioAddr
+		case consts.RoverCmd:
+			addr = s.Groups[recvEntity.GroupId].Controller.Info.CmdAddr
+		case consts.RoverVideo:
+			addr = s.Groups[recvEntity.GroupId].Controller.Info.VideoAddr
+		case consts.RoverAudio:
+			addr = s.Groups[recvEntity.GroupId].Controller.Info.AudioAddr
+		}
 
-		_, err = s.forwardConn.WriteToUDP(sendBytes, addr)
+		_, err = s.forwardConn.WriteToUDP(recvBytes, addr)
 		if err != nil {
 			fmt.Println(err)
 		}
