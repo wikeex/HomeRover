@@ -7,7 +7,6 @@ import (
 	"HomeRover/models/data"
 	"fmt"
 	"net"
-	"sync"
 	"time"
 )
 
@@ -21,18 +20,9 @@ type ClientService struct {
 
 	DestClient     	client.Client
 	LocalInfo 		client.Info
-	StateMu		 	sync.RWMutex
 }
 
 func (c *ClientService) HoldPunching()  {
-	go c.HoldPunching()
-
-	go holdPunchingRecv(c.CmdConn, &c.LocalInfo.Trans.CmdState, &c.StateMu, c.Conf.PackageLen)
-	go holdPunchingRecv(c.VideoConn, &c.LocalInfo.Trans.VideoState, &c.StateMu, c.Conf.PackageLen)
-	go holdPunchingRecv(c.AudioConn, &c.LocalInfo.Trans.AudioState, &c.StateMu, c.Conf.PackageLen)
-}
-
-func (c *ClientService) holdPunchingSend()  {
 	var (
 		sendData	data.Data
 		err			error
@@ -59,33 +49,6 @@ func (c *ClientService) holdPunchingSend()  {
 			if err != nil {
 				fmt.Println(err)
 			}
-		}
-	}
-}
-
-func holdPunchingRecv(conn *net.UDPConn, state *bool, stateMu *sync.RWMutex, packageLen int) {
-	recvBytes := make([]byte, packageLen)
-	recvData := data.Data{}
-
-	var (
-		err error
-	)
-
-	for {
-		_, _, err = conn.ReadFromUDP(recvBytes)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		err = recvData.FromBytes(recvBytes)
-		if err != nil {
-			fmt.Println(err)
-		}
-		if recvData.Type == consts.HoldPunchingResp {
-			stateMu.Lock()
-			*state = true
-			stateMu.Unlock()
-			break
 		}
 	}
 }

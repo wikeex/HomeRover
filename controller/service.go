@@ -163,21 +163,31 @@ func (s *Service) cmdSend()  {
 }
 
 func (s *Service) cmdRecv() {
-	receiveData := make([]byte, s.Conf.PackageLen)
+	recvBytes := make([]byte, s.Conf.PackageLen)
 	recvData := data.Data{}
+	sendData := data.Data{}
 
 	for {
-		_, _, err := s.CmdConn.ReadFromUDP(receiveData)
+		_, _, err := s.CmdConn.ReadFromUDP(recvBytes)
 		if err != nil {
 			fmt.Println(err)
 		}
-		err = recvData.FromBytes(receiveData)
+		err = recvData.FromBytes(recvBytes)
 		if err != nil {
 			fmt.Println(err)
 		}
 
 		if recvData.Type == consts.RoverCmd {
 			fmt.Println("rover cmd received")
+		} else if recvData.Type == consts.HoldPunchingSend {
+			_, err = s.CmdConn.WriteToUDP(sendData.ToBytes(), s.DestClient.Info.CmdAddr)
+			if err != nil {
+				fmt.Println(err)
+			}
+		} else if recvData.Type == consts.HoldPunchingResp {
+			s.roverMu.Lock()
+			s.DestClient.Info.Trans.CmdState = true
+			s.roverMu.Unlock()
 		}
 	}
 }
