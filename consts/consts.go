@@ -11,8 +11,6 @@ const (
 	RoverVideo
 	ControllerAudio
 	RoverAudio
-	HoldPunchingSend
-	HoldPunchingResp
 )
 
 // transmission mode
