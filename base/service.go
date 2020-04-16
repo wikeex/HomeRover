@@ -28,7 +28,7 @@ func allocatePort(conn *net.UDPConn) (*net.UDPAddr, error) {
 
 
 type Service struct {
-	Conf 			*config.ControllerConfig
+	Conf 			*config.CommonConfig
 
 	ServerConn 		*net.UDPConn
 	CmdConn    		*net.UDPConn

@@ -8,14 +8,7 @@ import (
 )
 
 type ControllerConfig struct {
-	ServerIP		string		`json:"serverIp"`
-	ServerPort		int			`json:"serverPort"`
-	LocalPort		int			`json:"localPort"`
-	JoystickFreq	int			`json:"joystickFreq"`
-	PackageLen		int			`json:"packageLen"`
-	ControllerId	int			`json:"controllerId"`
-	GroupId			int			`json:"groupId"`
-
+	JoystickFreq	int				`json:"joystickFreq"`
 	Trans 			mode.Trans
 	CmdMode   		mode.TransMode 	`json:"cmd"`
 	VideMode  		mode.TransMode 	`json:"video"`
@@ -24,11 +17,7 @@ type ControllerConfig struct {
 
 func GetDefaultControllerConfig() ControllerConfig {
 	return ControllerConfig{
-		ServerIP:		"140.143.99.31",
-		ServerPort:		10006,
-		LocalPort: 		18000,
 		JoystickFreq: 	50,
-		PackageLen: 	548,
 
 		CmdMode: 		false,
 		VideMode: 		false,
@@ -51,27 +40,7 @@ func ControllerConfigInit(filePath string) (controllerConf ControllerConfig, err
 		boolValue		bool
 	)
 
-	if tempString, ok = conf.Get("common", "serverIp"); ok {
-		controllerConf.ServerIP = tempString
-	}
-
-	if tempString, ok = conf.Get("common", "serverPort"); ok {
-		value, err = strconv.Atoi(tempString)
-		if err != nil {
-			return
-		}
-		controllerConf.ServerPort = value
-	}
-
-	if tempString, ok = conf.Get("common", "localPort"); ok {
-		value, err = strconv.Atoi(tempString)
-		if err != nil {
-			return
-		}
-		controllerConf.LocalPort = value
-	}
-
-	if tempString, ok = conf.Get("common", "joystickFreq"); ok {
+	if tempString, ok = conf.Get("controller", "joystickFreq"); ok {
 		value, err = strconv.Atoi(tempString)
 		if err != nil {
 			return
@@ -79,35 +48,7 @@ func ControllerConfigInit(filePath string) (controllerConf ControllerConfig, err
 		controllerConf.JoystickFreq = value
 	}
 
-	if tempString, ok = conf.Get("common", "packageLen"); ok {
-		value, err = strconv.Atoi(tempString)
-		if err != nil {
-			return
-		}
-		controllerConf.PackageLen = value
-	}
-
-	if tempString, ok = conf.Get("common", "ControllerId"); ok {
-		value, err = strconv.Atoi(tempString)
-		if err != nil {
-			return
-		}
-		controllerConf.ControllerId = value
-	} else {
-		panic("'ControllerId' variable missing from 'common' section")
-	}
-
-	if tempString, ok = conf.Get("common", "groupId"); ok {
-		value, err = strconv.Atoi(tempString)
-		if err != nil {
-			return
-		}
-		controllerConf.GroupId = value
-	} else {
-		panic("'groupId' variable missing from 'common' section")
-	}
-
-	if tempString, ok = conf.Get("mode", "cmd"); ok {
+	if tempString, ok = conf.Get("controller", "cmd"); ok {
 		boolValue, err = strconv.ParseBool(tempString)
 		if err != nil {
 			return
@@ -115,7 +56,7 @@ func ControllerConfigInit(filePath string) (controllerConf ControllerConfig, err
 		controllerConf.CmdMode = mode.TransMode(boolValue)
 	}
 
-	if tempString, ok = conf.Get("mode", "video"); ok {
+	if tempString, ok = conf.Get("controller", "video"); ok {
 		boolValue, err = strconv.ParseBool(tempString)
 		if err != nil {
 			return
@@ -123,7 +64,7 @@ func ControllerConfigInit(filePath string) (controllerConf ControllerConfig, err
 		controllerConf.VideMode = mode.TransMode(boolValue)
 	}
 
-	if tempString, ok = conf.Get("mode", "audio"); ok {
+	if tempString, ok = conf.Get("controller", "audio"); ok {
 		boolValue, err = strconv.ParseBool(tempString)
 		if err != nil {
 			return

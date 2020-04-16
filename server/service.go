@@ -14,7 +14,7 @@ import (
 )
 
 type Service struct {
-	conf 				*config.ControllerConfig
+	conf 				*config.ServerConfig
 	confMu				sync.RWMutex
 
 	Groups				map[uint16]*server.Group
@@ -42,18 +42,22 @@ func (s *Service) init() error {
 		},
 	}
 
+	var err error
 	s.confMu.RLock()
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%d", s.conf.LocalPort))
+	s.serviceAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%s", s.conf.ServicePort))
+	if err != nil {
+		return err
+	}
+	s.serviceConn, err = net.ListenUDP("udp", s.serviceAddr)
+	if err != nil {
+		return err
+	}
+	s.forwardAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%s", s.conf.ForwardPort))
 	if err != nil {
 		return err
 	}
 	s.confMu.RUnlock()
 
-	s.serviceConn, err = net.ListenUDP("udp", addr)
-	if err != nil {
-		return err
-	}
-	
 	return nil
 }
 

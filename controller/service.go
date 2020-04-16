@@ -10,30 +10,29 @@ import (
 )
 
 
-
-func NewService(conf *config.ControllerConfig, joystickData chan []byte) (service *Service, err error) {
+func NewService(conf *config.CommonConfig, controllerConf *config.ControllerConfig, joystickData chan []byte) (service *Service, err error) {
 	service = &Service{
 		joystickData: 	joystickData,
 		infoMu:       	sync.RWMutex{},
 	}
 
 	service.Conf = conf
+	service.controllerConf = controllerConf
 	service.LocalInfo.Type = consts.Controller
-	service.LocalInfo.Id = uint16(conf.ControllerId)
-	service.LocalInfo.Trans = conf.Trans
+	service.LocalInfo.Id = uint16(conf.Id)
+	service.LocalInfo.Trans = controllerConf.Trans
 	return
 }
 
 type Service struct {
 	base.Service
 
+	controllerConf 	*config.ControllerConfig
+
 	joystickData	chan []byte
 
 	infoMu    		sync.RWMutex
 }
-
-
-
 
 func (s *Service) cmdSend()  {
 	sendObject := data.Data{
