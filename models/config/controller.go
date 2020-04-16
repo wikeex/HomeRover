@@ -102,7 +102,7 @@ func ControllerConfigInit(filePath string) (controllerConf ControllerConfig, err
 		if err != nil {
 			return
 		}
-		controllerConf.ControllerId = value
+		controllerConf.GroupId = value
 	} else {
 		panic("'groupId' variable missing from 'common' section")
 	}

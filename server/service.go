@@ -76,14 +76,14 @@ func (s *Service)listenClients()  {
 			fmt.Println(err)
 		}
 
-		if recvData.Type == consts.ControllerServe || recvData.Type == consts.RoverServe {
+		if recvData.Type == consts.Service {
 			fmt.Println("heartbeat received")
 			err = clientInfo.FromBytes(recvData.Payload)
 			if err != nil {
 				fmt.Println(err)
 			}
 
-			if recvData.Type == consts.ControllerServe {
+			if recvData.Channel == consts.Controller {
 				// get the dest client from s.Groups
 				s.clientMu.Lock()
 				s.Groups[clientInfo.GroupId].Controller.Info = clientInfo
@@ -95,8 +95,6 @@ func (s *Service)listenClients()  {
 				s.TransMu.Unlock()
 
 				// send rover addr back
-				recvData.Type = consts.ServerResp
-
 				recvData.Payload, err = makeRespClientBytes(
 					&s.Groups[clientInfo.GroupId].Rover,
 					s.Groups[clientInfo.GroupId].Trans,
@@ -105,7 +103,7 @@ func (s *Service)listenClients()  {
 				if err != nil {
 					fmt.Println(err)
 				}
-			} else if recvData.Type == consts.RoverServe {
+			} else if recvData.Channel == consts.Service {
 				// get the dest client from s.Groups
 				s.clientMu.Lock()
 				s.Groups[clientInfo.GroupId].Rover.Info = clientInfo
@@ -113,8 +111,6 @@ func (s *Service)listenClients()  {
 				s.clientMu.Unlock()
 
 				// send controller addr back
-				recvData.Type = consts.ServerResp
-
 				recvData.Payload, err = makeRespClientBytes(
 					&s.Groups[clientInfo.GroupId].Controller,
 					s.Groups[clientInfo.GroupId].Trans,
@@ -125,6 +121,8 @@ func (s *Service)listenClients()  {
 				}
 			}
 
+			recvData.Type = consts.Server
+			recvData.Channel = consts.Service
 			_, err = s.serviceConn.WriteToUDP(recvData.ToBytes(), addr)
 			if err != nil {
 				fmt.Println(err)
@@ -158,19 +156,25 @@ func (s *Service) forward()  {
 			fmt.Println(err)
 		}
 
-		switch recvData.Type {
-		case consts.ControllerCmd:
-			addr = s.Groups[recvEntity.GroupId].Rover.Info.CmdAddr
-		case consts.ControllerVideo:
-			addr = s.Groups[recvEntity.GroupId].Rover.Info.VideoAddr
-		case consts.ControllerAudio:
-			addr = s.Groups[recvEntity.GroupId].Rover.Info.AudioAddr
-		case consts.RoverCmd:
-			addr = s.Groups[recvEntity.GroupId].Controller.Info.CmdAddr
-		case consts.RoverVideo:
-			addr = s.Groups[recvEntity.GroupId].Controller.Info.VideoAddr
-		case consts.RoverAudio:
-			addr = s.Groups[recvEntity.GroupId].Controller.Info.AudioAddr
+		switch recvData.Channel {
+		case consts.Cmd:
+			if recvData.Type == consts.Controller {
+				addr = s.Groups[recvEntity.GroupId].Rover.Info.CmdAddr
+			} else {
+				addr = s.Groups[recvEntity.GroupId].Controller.Info.CmdAddr
+			}
+		case consts.Video:
+			if recvData.Type == consts.Controller {
+				addr = s.Groups[recvEntity.GroupId].Rover.Info.VideoAddr
+			} else {
+				addr = s.Groups[recvEntity.GroupId].Controller.Info.VideoAddr
+			}
+		case consts.Audio:
+			if recvData.Type == consts.Controller {
+				addr = s.Groups[recvEntity.GroupId].Rover.Info.AudioAddr
+			} else {
+				addr = s.Groups[recvEntity.GroupId].Controller.Info.AudioAddr
+			}
 		}
 
 		_, err = s.forwardConn.WriteToUDP(recvBytes, addr)

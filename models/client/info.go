@@ -20,6 +20,8 @@ type Info struct {
 
 	GroupId				uint16
 	Trans				mode.Trans
+
+	Type 				uint8
 }
 
 func (c Info) ToBytes() ([]byte, error) {

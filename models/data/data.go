@@ -7,6 +7,7 @@ import (
 
 type Data struct {
 	Type 		uint8
+	Channel		uint8
 	OrderNum 	uint16
 	Payload		[]byte
 }
@@ -14,8 +15,8 @@ type Data struct {
 func (d Data) ToBytes() []byte {
 	var buffer bytes.Buffer
 
-	buffer.Write([]byte{d.Type})
-
+	buffer.WriteByte(d.Type)
+	buffer.WriteByte(d.Channel)
 	num := make([]byte, 2)
 	binary.BigEndian.PutUint16(num, d.OrderNum)
 	buffer.Write(num)
@@ -26,10 +27,9 @@ func (d Data) ToBytes() []byte {
 
 func (d Data) FromBytes(b []byte) error {
 	d.Type = b[0]
-
-	d.OrderNum = binary.BigEndian.Uint16(b[1:3])
-	d.Payload = b[3:]
+	d.Channel = b[1]
+	d.OrderNum = binary.BigEndian.Uint16(b[2:4])
+	d.Payload = b[4:]
 
 	return nil
 }
-

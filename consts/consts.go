@@ -1,16 +1,18 @@
 package consts
 
-// package type
+// client type
 const (
-	ControllerServe = iota
-	RoverServe
-	ServerResp
-	ControllerCmd
-	RoverCmd
-	ControllerVideo
-	RoverVideo
-	ControllerAudio
-	RoverAudio
+	Rover = iota
+	Controller
+	Server
+)
+
+// channel
+const (
+	Cmd = iota
+	Video
+	Audio
+	Service
 )
 
 // transmission mode
