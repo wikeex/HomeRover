@@ -6,11 +6,12 @@ import (
 	"HomeRover/models/config"
 	"HomeRover/models/data"
 	"fmt"
+	"net"
 )
 
-func NewService(conf *config.CommonConfig, roverConf *config.RoverConfig, joystickData chan []byte) (service *Service, err error) {
+func NewService(conf *config.CommonConfig, roverConf *config.RoverConfig, joystickDataCh chan []byte) (service *Service, err error) {
 	service = &Service{
-		joystickData: 	joystickData,
+		joystickDataCh: 	joystickDataCh,
 	}
 
 	service.Conf = conf
@@ -24,7 +25,9 @@ type Service struct {
 	base.Service
 
 	roverConf 		*config.RoverConfig
-	joystickData	chan []byte
+	joystickDataCh	chan []byte
+
+	cmdServiceConn	*net.UDPConn
 }
 
 func (s *Service) cmdRecv()  {
@@ -54,7 +57,7 @@ func (s *Service) cmdRecv()  {
 				fmt.Println(err)
 			}
 			
-			s.joystickData <- recvEntity.Payload
+			s.joystickDataCh <- recvEntity.Payload
 			counter++
 			if counter == 255 {
 				sendEntity.GroupId = recvEntity.GroupId
@@ -70,6 +73,22 @@ func (s *Service) cmdRecv()  {
 	}
 }
 
-func cmdService()  {
-	
+func (s *Service) cmdService()  {
+	cmdServiceAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("127.0.0.1:%d", s.roverConf.CmdServicePort))
+	if err != nil {
+		fmt.Println(err)
+	}
+	sendAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+	s.cmdServiceConn, err = net.ListenUDP("udp", sendAddr)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer s.cmdServiceConn.Close()
+
+	for {
+		_, err = s.cmdServiceConn.WriteToUDP(<- s.joystickDataCh, cmdServiceAddr)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }
