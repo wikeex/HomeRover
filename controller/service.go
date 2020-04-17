@@ -68,15 +68,15 @@ func (s *Service) cmdSend()  {
 }
 
 func (s *Service) cmdRecv() {
-	receiveData := make([]byte, s.Conf.PackageLen)
+	recvBytes := make([]byte, s.Conf.PackageLen)
 	recvData := data.Data{}
 
 	for {
-		_, _, err := s.CmdConn.ReadFromUDP(receiveData)
+		_, _, err := s.CmdConn.ReadFromUDP(recvBytes)
 		if err != nil {
 			fmt.Println(err)
 		}
-		err = recvData.FromBytes(receiveData)
+		err = recvData.FromBytes(recvBytes)
 		if err != nil {
 			fmt.Println(err)
 		}
