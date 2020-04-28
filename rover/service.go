@@ -83,7 +83,12 @@ func (s *Service) cmdService()  {
 	if err != nil {
 		fmt.Println(err)
 	}
-	defer s.cmdServiceConn.Close()
+	defer func() {
+		err := s.cmdServiceConn.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	for {
 		_, err = s.cmdServiceConn.WriteToUDP(<- s.joystickDataCh, cmdServiceAddr)
