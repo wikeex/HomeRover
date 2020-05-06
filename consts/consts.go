@@ -26,3 +26,10 @@ const (
 	Online = iota
 	Offline
 )
+
+// sdp info type
+const (
+	SDPReq = iota
+	SDPExchange
+	SDPEnd
+)

@@ -6,6 +6,7 @@ import (
 	"HomeRover/models/config"
 	"HomeRover/models/data"
 	"fmt"
+	"github.com/pion/webrtc/v2"
 	"math/rand"
 	"net"
 	"strconv"
@@ -39,6 +40,10 @@ type Service struct {
 	DestClientMu   	sync.RWMutex
 
 	LocalInfo 		client.Info
+
+	RemoteSDPCh		chan webrtc.SessionDescription
+	LocalSDPCh		chan webrtc.SessionDescription
+	WebrtcSignal	chan bool
 }
 
 func (s *Service) InitConn() error {
@@ -58,6 +63,10 @@ func (s *Service) InitConn() error {
 	if err != nil {
 		return err
 	}
+
+	s.RemoteSDPCh = make(chan webrtc.SessionDescription, 1)
+	s.LocalSDPCh = make(chan webrtc.SessionDescription, 1)
+	s.WebrtcSignal = make(chan bool, 1)
 
 	return nil
 }
@@ -116,6 +125,51 @@ func (s *Service) ServerRecv()  {
 			if s.DestClient.State == consts.Offline {
 				fmt.Println("rover is offline")
 			}
+		}
+	}
+}
+
+// Video Channel use to send spd now
+func (s *Service) SendSPD(second uint16, endSignal chan bool)  {
+	sendObject := data.Data{
+		Type: 		s.LocalInfo.Type,
+		Channel: 	consts.Video,
+		OrderNum: 	0,
+	}
+
+	var (
+		sdp			data.SDPData
+		err			error
+		timeout	= make(chan bool, 1)
+	)
+
+	if second > 0 {
+		go func() {
+			time.Sleep(time.Duration(second) * time.Second)
+			timeout <- true
+		}()
+	}
+
+	sdp.Type = consts.SDPExchange
+	sdp.SDPInfo = <- s.LocalSDPCh
+
+	sendObject.Payload, err = sdp.ToBytes()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for range time.Tick(3000 * time.Millisecond){
+		_, err = s.VideoConn.WriteToUDP(sendObject.ToBytes(), s.LocalInfo.VideoAddr)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		select {
+		case <- timeout:
+			return
+		case <- endSignal:
+			return
+		default:
 		}
 	}
 }

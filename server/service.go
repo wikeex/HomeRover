@@ -65,9 +65,12 @@ func (s *Service)listenClients()  {
 	recvBytes := make([]byte, s.conf.PackageLen)
 	recvData := data.Data{}
 	var (
-		err        error
-		addr       *net.UDPAddr
-		clientInfo client.Info
+		err        		error
+		addr       		*net.UDPAddr
+		sourceInfo		client.Info
+		sourceClient	*client.Client
+		destClient		*client.Client
+		groupId			uint16
 	)
 
 	for {
@@ -80,57 +83,50 @@ func (s *Service)listenClients()  {
 			fmt.Println(err)
 		}
 
-		if recvData.Type == consts.Service {
+		if recvData.Channel == consts.Service {
 			fmt.Println("heartbeat received")
-			err = clientInfo.FromBytes(recvData.Payload)
+			err = sourceInfo.FromBytes(recvData.Payload)
+			groupId = sourceInfo.GroupId
 			if err != nil {
 				fmt.Println(err)
 			}
 
-			if recvData.Channel == consts.Controller {
-				// get the dest client from s.Groups
-				s.clientMu.Lock()
-				s.Groups[clientInfo.GroupId].Controller.Info = clientInfo
-				s.Groups[clientInfo.GroupId].Controller.State = consts.Online
-				s.clientMu.Unlock()
+			if recvData.Type == consts.Controller {
+				sourceClient = &s.Groups[groupId].Controller
+				destClient = &s.Groups[groupId].Rover
 
 				s.TransMu.Lock()
-				s.Groups[clientInfo.GroupId].Trans = &clientInfo.Trans
+				s.Groups[groupId].Trans = &sourceInfo.Trans
 				s.TransMu.Unlock()
 
-				// send rover addr back
-				recvData.Payload, err = makeRespClientBytes(
-					&s.Groups[clientInfo.GroupId].Rover,
-					s.Groups[clientInfo.GroupId].Trans,
-					s.forwardAddr,
-				)
-				if err != nil {
-					fmt.Println(err)
-				}
-			} else if recvData.Channel == consts.Service {
-				// get the dest client from s.Groups
-				s.clientMu.Lock()
-				s.Groups[clientInfo.GroupId].Rover.Info = clientInfo
-				s.Groups[clientInfo.GroupId].Rover.State = consts.Online
-				s.clientMu.Unlock()
+			} else if recvData.Type == consts.Rover {
+				sourceClient = &s.Groups[groupId].Rover
+				destClient = &s.Groups[groupId].Controller
+			}
 
-				// send controller addr back
-				recvData.Payload, err = makeRespClientBytes(
-					&s.Groups[clientInfo.GroupId].Controller,
-					s.Groups[clientInfo.GroupId].Trans,
-					s.forwardAddr,
-				)
-				if err != nil {
-					fmt.Println(err)
-				}
+			// get the dest client from s.Groups
+			s.clientMu.Lock()
+			sourceClient.Info = sourceInfo
+			sourceClient.State = consts.Online
+			s.clientMu.Unlock()
+
+			// send controller addr back
+			recvData.Payload, err = makeRespClientBytes(
+				destClient,
+				s.Groups[groupId].Trans,
+				s.forwardAddr,
+			)
+			if err != nil {
+				fmt.Println(err)
 			}
 
 			recvData.Type = consts.Server
 			recvData.Channel = consts.Service
-			_, err = s.serviceConn.WriteToUDP(recvData.ToBytes(), addr)
-			if err != nil {
-				fmt.Println(err)
-			}
+		}
+
+		_, err = s.serviceConn.WriteToUDP(recvData.ToBytes(), addr)
+		if err != nil {
+			fmt.Println(err)
 		}
 	}
 }
