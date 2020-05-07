@@ -7,7 +7,7 @@ import (
 )
 
 func main()  {
-	conf, err := config.ServerConfigInit("./server.ini")
+	conf, err := config.ServerConfigInit("conf/server.ini")
 	if err != nil {
 		fmt.Println(err)
 	}

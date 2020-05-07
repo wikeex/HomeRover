@@ -52,7 +52,7 @@ func (s *Service) init() error {
 
 	var err error
 	s.confMu.RLock()
-	s.serviceAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%s", s.conf.ServicePort))
+	s.serviceAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%d", s.conf.ServicePort))
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (s *Service) init() error {
 	if err != nil {
 		return err
 	}
-	s.forwardAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%s", s.conf.ForwardPort))
+	s.forwardAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%d", s.conf.ForwardPort))
 	if err != nil {
 		return err
 	}

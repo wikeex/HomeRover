@@ -14,13 +14,13 @@ import (
 	"time"
 )
 
-func allocatePort(conn *net.UDPConn) (*net.UDPAddr, error) {
+func allocatePort(conn **net.UDPConn) (*net.UDPAddr, error) {
 	rand.Seed(time.Now().UnixNano())
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%d", rand.Intn(55535) + 10000))
 	if err != nil {
 		return allocatePort(conn)
 	}
-	conn, err = net.ListenUDP("udp", addr)
+	*conn, err = net.ListenUDP("udp", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -47,19 +47,19 @@ type Service struct {
 }
 
 func (s *Service) InitConn() error {
-	_, err := allocatePort(s.ServerConn)
+	_, err := allocatePort(&s.ServerConn)
 	if err != nil {
 		return err
 	}
-	s.LocalInfo.CmdAddr, err = allocatePort(s.CmdConn)
+	s.LocalInfo.CmdAddr, err = allocatePort(&s.CmdConn)
 	if err != nil {
 		return err
 	}
-	s.LocalInfo.VideoAddr, err = allocatePort(s.VideoConn)
+	s.LocalInfo.VideoAddr, err = allocatePort(&s.VideoConn)
 	if err != nil {
 		return err
 	}
-	s.LocalInfo.AudioAddr, err = allocatePort(s.AudioConn)
+	s.LocalInfo.AudioAddr, err = allocatePort(&s.AudioConn)
 	if err != nil {
 		return err
 	}

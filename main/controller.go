@@ -8,12 +8,12 @@ import (
 )
 
 func main() {
-	conf, err := config.CommonConfigInit("./controller.ini")
+	conf, err := config.CommonConfigInit("conf/controller.ini")
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	controllerConf, err := config.ControllerConfigInit("./controller.ini")
+	controllerConf, err := config.ControllerConfigInit("conf/controller.ini")
 	if err != nil {
 		fmt.Println(err)
 	}
