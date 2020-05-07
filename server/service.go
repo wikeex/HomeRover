@@ -13,6 +13,14 @@ import (
 	"sync"
 )
 
+func NewService(conf *config.ServerConfig) (*Service, error) {
+	service := &Service{
+		conf: conf,
+	}
+	service.Groups = make(map[uint16]*server.Group)
+	return service, nil
+}
+
 type Service struct {
 	conf 				*config.ServerConfig
 	confMu				sync.RWMutex
@@ -191,6 +199,7 @@ func (s *Service) Run() {
 	}
 	
 	go s.listenClients()
+	select {}
 }
 
 func makeRespClientBytes(c *client.Client, transRule *mode.Trans, forwardAddr *net.UDPAddr) ([]byte, error) {

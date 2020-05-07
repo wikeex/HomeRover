@@ -3,7 +3,6 @@ package config
 import (
 	"github.com/vaughan0/go-ini"
 	"strconv"
-	"strings"
 )
 
 type RoverConfig struct {
@@ -19,7 +18,7 @@ func GetDefaultRoverConfig() RoverConfig {
 func RoverConfigInit(filePath string) (roverConfig RoverConfig, err error) {
 	roverConfig = GetDefaultRoverConfig()
 
-	conf, err := ini.Load(strings.NewReader(filePath))
+	conf, err := ini.LoadFile(filePath)
 	if err != nil {
 		return RoverConfig{}, err
 	}

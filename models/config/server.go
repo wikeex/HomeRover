@@ -3,7 +3,6 @@ package config
 import (
 	"github.com/vaughan0/go-ini"
 	"strconv"
-	"strings"
 )
 
 type ServerConfig struct {
@@ -23,7 +22,7 @@ func GetDefaultServerConfig() ServerConfig {
 func ServerConfigInit(filePath string) (serverConf ServerConfig, err error) {
 	serverConf = GetDefaultServerConfig()
 
-	conf, err := ini.Load(strings.NewReader(filePath))
+	conf, err := ini.LoadFile(filePath)
 	if err != nil {
 		return ServerConfig{}, err
 	}

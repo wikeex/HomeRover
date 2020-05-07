@@ -4,7 +4,6 @@ import (
 	"HomeRover/models/mode"
 	"github.com/vaughan0/go-ini"
 	"strconv"
-	"strings"
 )
 
 type ControllerConfig struct {
@@ -28,7 +27,7 @@ func GetDefaultControllerConfig() ControllerConfig {
 func ControllerConfigInit(filePath string) (controllerConf ControllerConfig, err error) {
 	controllerConf = GetDefaultControllerConfig()
 
-	conf, err := ini.Load(strings.NewReader(filePath))
+	conf, err := ini.LoadFile(filePath)
 	if err != nil {
 		return ControllerConfig{}, err
 	}
