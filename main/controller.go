@@ -36,5 +36,5 @@ func main() {
 		fmt.Println(err)
 	}
 
-	go service.Run()
+	service.Run()
 }
