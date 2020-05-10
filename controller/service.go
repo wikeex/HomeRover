@@ -11,7 +11,6 @@ import (
 	"github.com/pion/webrtc/v2"
 	"runtime"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -19,7 +18,6 @@ import (
 func NewService(conf *config.CommonConfig, controllerConf *config.ControllerConfig, joystickData chan []byte) (service *Service, err error) {
 	service = &Service{
 		joystickData: 	joystickData,
-		infoMu:       	sync.RWMutex{},
 	}
 
 	service.Conf = conf
@@ -38,7 +36,6 @@ type Service struct {
 
 	joystickData	chan []byte
 
-	infoMu    		sync.RWMutex
 	sdpReqSignal	chan bool
 }
 
@@ -243,7 +240,7 @@ func (s *Service) sendSDPReq()  {
 	sendData := sendObject.ToBytes()
 
 	for range time.Tick(time.Second) {
-		_, err = s.VideoConn.WriteToUDP(sendData, s.LocalInfo.VideoAddr)
+		_, err = s.VideoConn.WriteToUDP(sendData, s.DestClient.Info.VideoAddr)
 		if err != nil {
 			fmt.Println(err)
 		}

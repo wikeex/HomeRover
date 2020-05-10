@@ -40,6 +40,7 @@ type Service struct {
 	DestClientMu   	sync.RWMutex
 
 	LocalInfo 		client.Info
+	LocalInfoMu    	sync.RWMutex
 
 	RemoteSDPCh		chan webrtc.SessionDescription
 	LocalSDPCh		chan webrtc.SessionDescription
@@ -48,6 +49,8 @@ type Service struct {
 
 func (s *Service) InitConn() error {
 	_, err := allocatePort(&s.ServerConn)
+
+	s.LocalInfoMu.Lock()
 	if err != nil {
 		return err
 	}
@@ -63,6 +66,7 @@ func (s *Service) InitConn() error {
 	if err != nil {
 		return err
 	}
+	s.LocalInfoMu.Unlock()
 
 	s.RemoteSDPCh = make(chan webrtc.SessionDescription, 1)
 	s.LocalSDPCh = make(chan webrtc.SessionDescription, 1)
@@ -72,6 +76,7 @@ func (s *Service) InitConn() error {
 }
 
 func (s *Service) ServerSend()  {
+	s.LocalInfoMu.RLock()
 	addrBytes, err := s.LocalInfo.ToBytes()
 	if err != nil {
 		fmt.Println(err)
@@ -82,6 +87,7 @@ func (s *Service) ServerSend()  {
 		OrderNum: 0,
 		Payload:  addrBytes,
 	}
+	s.LocalInfoMu.RUnlock()
 
 	sendData := sendObject.ToBytes()
 
@@ -122,20 +128,24 @@ func (s *Service) ServerRecv()  {
 				fmt.Println(err)
 			}
 			s.DestClientMu.Unlock()
+			s.DestClientMu.RLock()
 			if s.DestClient.State == consts.Offline {
 				fmt.Println("rover is offline")
 			}
+			s.DestClientMu.RUnlock()
 		}
 	}
 }
 
 // Video Channel use to send spd now
 func (s *Service) SendSPD(second uint16, endSignal chan bool)  {
+	s.LocalInfoMu.RLock()
 	sendObject := data.Data{
 		Type: 		s.LocalInfo.Type,
 		Channel: 	consts.Video,
 		OrderNum: 	0,
 	}
+	s.LocalInfoMu.RUnlock()
 
 	var (
 		sdp			data.SDPData
@@ -159,7 +169,10 @@ func (s *Service) SendSPD(second uint16, endSignal chan bool)  {
 	}
 
 	for range time.Tick(3000 * time.Millisecond){
+		s.LocalInfoMu.RLock()
 		_, err = s.VideoConn.WriteToUDP(sendObject.ToBytes(), s.LocalInfo.VideoAddr)
+		s.LocalInfoMu.RUnlock()
+
 		if err != nil {
 			fmt.Println(err)
 		}
