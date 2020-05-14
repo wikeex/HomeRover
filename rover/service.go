@@ -15,13 +15,12 @@ import (
 	"strconv"
 )
 
-func NewService(conf *config.CommonConfig, roverConf *config.RoverConfig, joystickDataCh chan []byte) (service *Service, err error) {
-	service = &Service{
-		joystickDataCh: 	joystickDataCh,
-	}
+func NewService(conf *config.CommonConfig, roverConf *config.RoverConfig) (service *Service, err error) {
+	service = &Service{}
 
 	service.Conf = conf
 	service.roverConf = roverConf
+	service.joystickDataCh = make(chan []byte, 1)
 	service.LocalInfo.Type = consts.Rover
 	service.LocalInfo.Id = uint16(conf.Id)
 	return
@@ -85,7 +84,8 @@ func (s *Service) cmdService()  {
 	if err != nil {
 		fmt.Println(err)
 	}
-	sendAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+
+	sendAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:" + strconv.Itoa(s.roverConf.CmdServicePort))
 	s.cmdServiceConn, err = net.ListenUDP("udp", sendAddr)
 	if err != nil {
 		fmt.Println(err)
@@ -231,4 +231,22 @@ func (s *Service) recvSDP()  {
 			}
 		}
 	}
+}
+
+func (s *Service) Run()  {
+	err := s.InitConn()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	go s.ServerSend()
+	go s.ServerRecv()
+
+	go s.cmdRecv()
+	go s.cmdService()
+
+	go s.SendSPD(0, s.WebrtcSignal)
+	go s.recvSDP()
+
+	select {}
 }
