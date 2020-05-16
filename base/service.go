@@ -2,11 +2,13 @@ package base
 
 import (
 	"HomeRover/consts"
+	"HomeRover/log"
 	"HomeRover/models/client"
 	"HomeRover/models/config"
 	"HomeRover/models/data"
 	"fmt"
 	"github.com/pion/webrtc/v2"
+	"github.com/sirupsen/logrus"
 	"math/rand"
 	"net"
 	"strconv"
@@ -72,6 +74,12 @@ func (s *Service) InitConn() error {
 	s.LocalSDPCh = make(chan webrtc.SessionDescription, 1)
 	s.WebrtcSignal = make(chan bool, 1)
 
+	log.Logger.WithFields(logrus.Fields{
+		"cmd addr": s.LocalInfo.CmdAddr.String(),
+		"video addr": s.LocalInfo.VideoAddr.String(),
+		"audio addr": s.LocalInfo.AudioAddr.String(),
+	}).Info("allocated local port")
+
 	return nil
 }
 
@@ -79,7 +87,7 @@ func (s *Service) ServerSend()  {
 	s.LocalInfoMu.RLock()
 	addrBytes, err := s.LocalInfo.ToBytes()
 	if err != nil {
-		fmt.Println(err)
+		log.Logger.Error(err)
 	}
 	sendObject := data.Data{
 		Type:     s.LocalInfo.Type,
@@ -94,13 +102,18 @@ func (s *Service) ServerSend()  {
 	addrStr := s.Conf.ServerIP + ":" + strconv.Itoa(s.Conf.ServerPort)
 	addr, err := net.ResolveUDPAddr("udp", addrStr)
 	if err != nil {
-		fmt.Println(err)
+		log.Logger.Error(err)
 	}
 
+	log.Logger.Info("starting server send task")
 	for range time.Tick(time.Second){
+		log.Logger.WithFields(logrus.Fields{
+			"data": sendData,
+			"addr": addr.String(),
+		}).Debug("send heartbeat to server")
 		_, err = s.ServerConn.WriteToUDP(sendData, addr)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 		sendObject.OrderNum++
 		sendData = sendObject.ToBytes()
@@ -114,20 +127,28 @@ func (s *Service) ServerRecv()  {
 	for {
 		_, _, err := s.ServerConn.ReadFromUDP(receiveData)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 		err = RecvData.FromBytes(receiveData)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 
+		log.Logger.WithFields(logrus.Fields{
+
+		})
+
+		log.Logger.Info("starting server receive task")
 		if RecvData.Type == consts.Server && RecvData.Channel == consts.Service {
 			s.DestClientMu.Lock()
 			err = s.DestClient.FromBytes(RecvData.Payload)
 			if err != nil {
-				fmt.Println(err)
+				log.Logger.Error(err)
 			}
 			s.DestClientMu.Unlock()
+			log.Logger.WithFields(logrus.Fields{
+				"destination client": s.DestClient,
+			}).Info("received heartbeat response")
 			s.DestClientMu.RLock()
 			if s.DestClient.State == consts.Offline {
 				fmt.Println("rover is offline")
@@ -138,7 +159,7 @@ func (s *Service) ServerRecv()  {
 }
 
 // Video Channel use to send spd now
-func (s *Service) SendSPD(second uint16, endSignal chan bool)  {
+func (s *Service) SendSDP(second uint16, endSignal chan bool)  {
 	s.LocalInfoMu.RLock()
 	sendObject := data.Data{
 		Type: 		s.LocalInfo.Type,
@@ -165,16 +186,20 @@ func (s *Service) SendSPD(second uint16, endSignal chan bool)  {
 
 	sendObject.Payload, err = sdp.ToBytes()
 	if err != nil {
-		fmt.Println(err)
+		log.Logger.Error(err)
 	}
 
+	log.Logger.Info("start sdp task")
 	for range time.Tick(3000 * time.Millisecond){
 		s.LocalInfoMu.RLock()
 		_, err = s.VideoConn.WriteToUDP(sendObject.ToBytes(), s.LocalInfo.VideoAddr)
 		s.LocalInfoMu.RUnlock()
+		log.Logger.WithFields(logrus.Fields{
+			"sdp info": sdp.SDPInfo,
+		}).Info("sdp info sent")
 
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 
 		select {

@@ -4,6 +4,7 @@ import (
 	"HomeRover/base"
 	"HomeRover/consts"
 	gst "HomeRover/gst/gstreamer-sink"
+	"HomeRover/log"
 	"HomeRover/models/config"
 	"HomeRover/models/data"
 	"fmt"
@@ -65,7 +66,7 @@ func (s *Service) cmdSend()  {
 			sendData = sendObject.ToBytes()
 			_, err = s.CmdConn.WriteToUDP(sendData, s.DestClient.Info.CmdAddr)
 			if err != nil {
-				fmt.Println(err)
+				log.Logger.Error(err)
 			}
 		}
 		s.DestClientMu.RUnlock()
@@ -79,11 +80,11 @@ func (s *Service) cmdRecv() {
 	for {
 		_, _, err := s.CmdConn.ReadFromUDP(recvBytes)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 		err = recvData.FromBytes(recvBytes)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 
 		if recvData.Type == consts.Rover && recvData.Channel == consts.Cmd {
@@ -196,17 +197,17 @@ func (s *Service) recvSDP()  {
 	for {
 		_, _, err = s.VideoConn.ReadFromUDP(recvBytes)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 		err = recvData.FromBytes(recvBytes)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 
 		if recvData.Type == consts.Rover && recvData.Channel == consts.Video {
 			err = recvSDP.FromBytes(recvData.Payload)
 			if err != nil {
-				fmt.Println(err)
+				log.Logger.Error(err)
 			}
 			switch recvSDP.Type {
 			case consts.SDPExchange:
@@ -233,7 +234,7 @@ func (s *Service) sendSDPReq()  {
 
 	sdpBytes, err := sdp.ToBytes()
 	if err != nil {
-		fmt.Println(err)
+		log.Logger.Error(err)
 	}
 
 	sendObject.Payload = sdpBytes
@@ -242,7 +243,7 @@ func (s *Service) sendSDPReq()  {
 	for range time.Tick(time.Second) {
 		_, err = s.VideoConn.WriteToUDP(sendData, s.DestClient.Info.VideoAddr)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 
 		select {
@@ -255,7 +256,7 @@ func (s *Service) sendSDPReq()  {
 func (s *Service) Run() {
 	err := s.InitConn()
 	if err != nil {
-		fmt.Println(err)
+		log.Logger.Error(err)
 	}
 
 	go s.ServerSend()
