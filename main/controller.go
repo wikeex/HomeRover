@@ -31,6 +31,7 @@ func main() {
 		log.Logger.Error(err)
 	}
 
+	log.Logger.Info("joystick task staring...")
 	go js.Run()
 
 	service, err := controller.NewService(&conf, &controllerConf, joystickData)
