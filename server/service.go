@@ -2,6 +2,7 @@ package server
 
 import (
 	"HomeRover/consts"
+	"HomeRover/log"
 	"HomeRover/models/client"
 	"HomeRover/models/config"
 	"HomeRover/models/data"
@@ -9,6 +10,7 @@ import (
 	"HomeRover/models/server"
 	"fmt"
 	mapset "github.com/deckarep/golang-set"
+	"github.com/sirupsen/logrus"
 	"net"
 	"sync"
 )
@@ -81,25 +83,27 @@ func (s *Service)listenClients()  {
 		groupId			uint16
 	)
 
+	log.Logger.Info("listen client task starting...")
 	for {
 		_, addr, err = s.serviceConn.ReadFromUDP(recvBytes)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 		err = recvData.FromBytes(recvBytes)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 
 		if recvData.Channel == consts.Service {
-			fmt.Println("heartbeat received")
+
 			err = sourceInfo.FromBytes(recvData.Payload)
 			groupId = sourceInfo.GroupId
 			if err != nil {
-				fmt.Println(err)
+				log.Logger.Error(err)
 			}
 
 			if recvData.Type == consts.Controller {
+				log.Logger.Info("controller heartbeat received")
 				sourceClient = &s.Groups[groupId].Controller
 				destClient = &s.Groups[groupId].Rover
 
@@ -108,6 +112,7 @@ func (s *Service)listenClients()  {
 				s.TransMu.Unlock()
 
 			} else if recvData.Type == consts.Rover {
+				log.Logger.Info("rover heartbeat received")
 				sourceClient = &s.Groups[groupId].Rover
 				destClient = &s.Groups[groupId].Controller
 			}
@@ -125,16 +130,19 @@ func (s *Service)listenClients()  {
 				s.forwardAddr,
 			)
 			if err != nil {
-				fmt.Println(err)
+				log.Logger.Error(err)
 			}
 
 			recvData.Type = consts.Server
 			recvData.Channel = consts.Service
 		}
-
+		log.Logger.WithFields(logrus.Fields{
+			"data": recvData,
+			"addr": addr.String(),
+		}).Info("send heartbeat response to client")
 		_, err = s.serviceConn.WriteToUDP(recvData.ToBytes(), addr)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 	}
 }
@@ -148,22 +156,24 @@ func (s *Service) forward()  {
 		recvEntity	data.EntityData
 	)
 
+	log.Logger.Info("forward task starting...")
 	for {
 		_, _, err = s.serviceConn.ReadFromUDP(recvBytes)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 
 		err = recvData.FromBytes(recvBytes)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 
 		err = recvEntity.FromBytes(recvData.Payload)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 
+		log.Logger.WithFields(logrus.Fields{"data": recvEntity}).Info("forward data received")
 		switch recvData.Channel {
 		case consts.Cmd:
 			if recvData.Type == consts.Controller {
@@ -185,17 +195,19 @@ func (s *Service) forward()  {
 			}
 		}
 
+		log.Logger.Info("forward data send")
 		_, err = s.forwardConn.WriteToUDP(recvBytes, addr)
 		if err != nil {
-			fmt.Println(err)
+			log.Logger.Error(err)
 		}
 	}
 }
 
 func (s *Service) Run() {
+	log.Logger.Info("server service starting")
 	err := s.init()
 	if err != nil {
-		fmt.Println(err)
+		log.Logger.Error(err)
 	}
 	
 	go s.listenClients()

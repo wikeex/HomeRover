@@ -189,7 +189,7 @@ func (s *Service) SendSDP(second uint16, endSignal chan bool)  {
 		log.Logger.Error(err)
 	}
 
-	log.Logger.Info("start sdp task")
+	log.Logger.Info("start sdp send task")
 	for range time.Tick(3000 * time.Millisecond){
 		s.LocalInfoMu.RLock()
 		_, err = s.VideoConn.WriteToUDP(sendObject.ToBytes(), s.LocalInfo.VideoAddr)

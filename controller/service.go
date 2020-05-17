@@ -7,9 +7,9 @@ import (
 	"HomeRover/log"
 	"HomeRover/models/config"
 	"HomeRover/models/data"
-	"fmt"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v2"
+	"github.com/sirupsen/logrus"
 	"runtime"
 	"strconv"
 	"time"
@@ -58,6 +58,7 @@ func (s *Service) cmdSend()  {
 		err			error
 	)
 
+	log.Logger.Info("command send task starting...")
 	for {
 		sendEntity.Payload =  <- s.joystickData
 		sendObject.Payload = sendEntity.ToBytes()
@@ -68,6 +69,9 @@ func (s *Service) cmdSend()  {
 			if err != nil {
 				log.Logger.Error(err)
 			}
+			log.Logger.WithFields(logrus.Fields{
+				"send entity": sendEntity,
+			}).Debug("send command to rover")
 		}
 		s.DestClientMu.RUnlock()
 	}
@@ -77,6 +81,7 @@ func (s *Service) cmdRecv() {
 	recvBytes := make([]byte, s.Conf.PackageLen)
 	recvData := data.Data{}
 
+	log.Logger.Info("command receive task starting...")
 	for {
 		_, _, err := s.CmdConn.ReadFromUDP(recvBytes)
 		if err != nil {
@@ -88,12 +93,14 @@ func (s *Service) cmdRecv() {
 		}
 
 		if recvData.Type == consts.Rover && recvData.Channel == consts.Cmd {
-			fmt.Println("cmd received")
+			log.Logger.Info("received command response from rover")
 		}
 	}
 }
 
 func (s *Service) videoRecv()  {
+	log.Logger.Info("video receive task (webrtc) starting...")
+
 	// Prepare the configuration
 	webrtcConf := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
@@ -128,13 +135,13 @@ func (s *Service) videoRecv()  {
 			for range ticker.C {
 				rtcpSendErr := peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: track.SSRC()}})
 				if rtcpSendErr != nil {
-					fmt.Println(rtcpSendErr)
+					log.Logger.Error(rtcpSendErr)
 				}
 			}
 		}()
 
 		codec := track.Codec()
-		fmt.Printf("Track has started, of type %d: %s \n", track.PayloadType(), codec.Name)
+		log.Logger.Info("Track has started, of type %d: %s \n", track.PayloadType(), codec.Name)
 		pipeline := gst.CreatePipeline(codec.Name)
 		pipeline.Start()
 		buf := make([]byte, 1400)
@@ -151,7 +158,7 @@ func (s *Service) videoRecv()  {
 	// Set the handler for ICE connection state
 	// This will notify you when the peer has connected/disconnected
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("Connection State has changed %s \n", connectionState.String())
+		log.Logger.Info("Connection State has changed %s \n", connectionState.String())
 	})
 
 	// Set the remote SessionDescription
@@ -173,7 +180,7 @@ func (s *Service) videoRecv()  {
 	}
 
 	s.LocalSDPCh <- answer
-	go s.SendSPD(30, make(chan bool, 1))
+	go s.SendSDP(30, make(chan bool, 1))
 
 	if len(s.WebrtcSignal) > 0 {
 		<-s.WebrtcSignal
@@ -182,6 +189,7 @@ func (s *Service) videoRecv()  {
 	// Block forever
 	select {
 	case <- s.WebrtcSignal:
+		log.Logger.Info("got exit webrtc signal, webrtc will exit")
 		runtime.Goexit()
 	}
 }
@@ -194,6 +202,7 @@ func (s *Service) recvSDP()  {
 		err			error
 	)
 
+	log.Logger.Info("start receive sdp task")
 	for {
 		_, _, err = s.VideoConn.ReadFromUDP(recvBytes)
 		if err != nil {
@@ -211,11 +220,14 @@ func (s *Service) recvSDP()  {
 			}
 			switch recvSDP.Type {
 			case consts.SDPExchange:
+				log.Logger.Info("receive SDP info from remote, webrtc task will shutdown and restart")
 				s.WebrtcSignal <- true
 				s.sdpReqSignal <- true
 				go s.videoRecv()
 			case consts.SDPReq:
+				log.Logger.Info("receive SDP request from remote")
 			case consts.SDPEnd:
+				log.Logger.Info("receive SDP end from remote")
 			}
 		}
 	}
@@ -240,6 +252,7 @@ func (s *Service) sendSDPReq()  {
 	sendObject.Payload = sdpBytes
 	sendData := sendObject.ToBytes()
 
+	log.Logger.Info("start send SDP request")
 	for range time.Tick(time.Second) {
 		_, err = s.VideoConn.WriteToUDP(sendData, s.DestClient.Info.VideoAddr)
 		if err != nil {
@@ -254,6 +267,7 @@ func (s *Service) sendSDPReq()  {
 }
 
 func (s *Service) Run() {
+	log.Logger.Info("controller service starting...")
 	err := s.InitConn()
 	if err != nil {
 		log.Logger.Error(err)
