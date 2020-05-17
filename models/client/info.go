@@ -24,7 +24,7 @@ type Info struct {
 	Type 				uint8
 }
 
-func (c Info) ToBytes() ([]byte, error) {
+func (c *Info) ToBytes() ([]byte, error) {
 	var buffer bytes.Buffer
 
 	// client client id
@@ -82,7 +82,7 @@ func (c Info) ToBytes() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func (c Info) FromBytes(b []byte) error {
+func (c *Info) FromBytes(b []byte) error {
 	var err error
 	c.Id = binary.BigEndian.Uint16(b[:2])
 
@@ -132,7 +132,7 @@ func bytesToInfo(b []byte) (*net.UDPAddr, error) {
 	}
 	ip := strings.Join(ipStrings, ".")
 	port := strconv.Itoa(int(binary.BigEndian.Uint16(b[4:])))
-	addr, err := net.ResolveUDPAddr("udp", strings.Join([]string{ip, port}, ";"))
+	addr, err := net.ResolveUDPAddr("udp", strings.Join([]string{ip, port}, ":"))
 	if err != nil {
 		return nil, err
 	}

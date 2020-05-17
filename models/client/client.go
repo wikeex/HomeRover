@@ -12,7 +12,7 @@ type Client struct {
 	Info  Info
 }
 
-func (c Client) ToBytes() ([]byte, error) {
+func (c *Client) ToBytes() ([]byte, error) {
 	buffer := bytes.Buffer{}
 
 	buffer.Write([]byte{byte(c.State)})
@@ -27,7 +27,7 @@ func (c Client) ToBytes() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func (c Client) FromBytes(b []byte) error {
+func (c *Client) FromBytes(b []byte) error {
 	c.State = State(b[0])
 
 	err := c.Info.FromBytes(b[1:])

@@ -10,7 +10,7 @@ type EntityData struct {
 	Payload		[]byte
 }
 
-func (e EntityData) ToBytes() []byte {
+func (e *EntityData) ToBytes() []byte {
 	var buffer bytes.Buffer
 
 	groupIdBytes := make([]byte, 2)
@@ -21,7 +21,7 @@ func (e EntityData) ToBytes() []byte {
 	return buffer.Bytes()
 }
 
-func (e EntityData) FromBytes(b []byte) error {
+func (e *EntityData) FromBytes(b []byte) error {
 	e.GroupId = binary.BigEndian.Uint16(b[:2])
 	e.Payload = b[2:]
 

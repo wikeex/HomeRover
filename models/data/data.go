@@ -12,7 +12,7 @@ type Data struct {
 	Payload		[]byte
 }
 
-func (d Data) ToBytes() []byte {
+func (d *Data) ToBytes() []byte {
 	var buffer bytes.Buffer
 
 	buffer.WriteByte(d.Type)
@@ -25,7 +25,7 @@ func (d Data) ToBytes() []byte {
 	return buffer.Bytes()
 }
 
-func (d Data) FromBytes(b []byte) error {
+func (d *Data) FromBytes(b []byte) error {
 	d.Type = b[0]
 	d.Channel = b[1]
 	d.OrderNum = binary.BigEndian.Uint16(b[2:4])

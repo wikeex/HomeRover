@@ -67,11 +67,8 @@ func (s *Service) cmdSend()  {
 			sendData = sendObject.ToBytes()
 			_, err = s.CmdConn.WriteToUDP(sendData, s.DestClient.Info.CmdAddr)
 			if err != nil {
-				log.Logger.Error(err)
+				log.Logger.Debug(err)
 			}
-			log.Logger.WithFields(logrus.Fields{
-				"send entity": sendEntity,
-			}).Debug("send command to rover")
 		}
 		s.DestClientMu.RUnlock()
 	}
@@ -254,6 +251,10 @@ func (s *Service) sendSDPReq()  {
 
 	log.Logger.Info("start send SDP request")
 	for range time.Tick(time.Second) {
+		log.Logger.WithFields(logrus.Fields{
+			"SDP request info": sdp,
+			"destination addr": s.DestClient.Info.VideoAddr,
+		}).Debug("SDP request to rover")
 		_, err = s.VideoConn.WriteToUDP(sendData, s.DestClient.Info.VideoAddr)
 		if err != nil {
 			log.Logger.Error(err)

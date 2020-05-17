@@ -108,7 +108,7 @@ func (s *Service) ServerSend()  {
 	log.Logger.Info("starting server send task")
 	for range time.Tick(time.Second){
 		log.Logger.WithFields(logrus.Fields{
-			"data": sendData,
+			"send bytes": sendData,
 			"addr": addr.String(),
 		}).Debug("send heartbeat to server")
 		_, err = s.ServerConn.WriteToUDP(sendData, addr)
@@ -121,34 +121,32 @@ func (s *Service) ServerSend()  {
 }
 
 func (s *Service) ServerRecv()  {
-	receiveData := make([]byte, s.Conf.PackageLen)
-	RecvData := data.Data{}
+	recvBytes := make([]byte, s.Conf.PackageLen)
+	recvData := data.Data{}
 
+	log.Logger.Info("starting server receive task")
 	for {
-		_, _, err := s.ServerConn.ReadFromUDP(receiveData)
+		_, _, err := s.ServerConn.ReadFromUDP(recvBytes)
 		if err != nil {
 			log.Logger.Error(err)
 		}
-		err = RecvData.FromBytes(receiveData)
+		err = recvData.FromBytes(recvBytes)
 		if err != nil {
 			log.Logger.Error(err)
 		}
 
 		log.Logger.WithFields(logrus.Fields{
+			"response data": recvData,
+		}).Info("received heartbeat response")
 
-		})
-
-		log.Logger.Info("starting server receive task")
-		if RecvData.Type == consts.Server && RecvData.Channel == consts.Service {
+		if recvData.Type == consts.Server && recvData.Channel == consts.Service {
 			s.DestClientMu.Lock()
-			err = s.DestClient.FromBytes(RecvData.Payload)
+			err = s.DestClient.FromBytes(recvData.Payload)
 			if err != nil {
 				log.Logger.Error(err)
 			}
 			s.DestClientMu.Unlock()
-			log.Logger.WithFields(logrus.Fields{
-				"destination client": s.DestClient,
-			}).Info("received heartbeat response")
+
 			s.DestClientMu.RLock()
 			if s.DestClient.State == consts.Offline {
 				fmt.Println("rover is offline")

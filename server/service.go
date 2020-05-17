@@ -94,6 +94,11 @@ func (s *Service)listenClients()  {
 			log.Logger.Error(err)
 		}
 
+		log.Logger.WithFields(logrus.Fields{
+			"received bytes": recvBytes,
+			"received data": recvData,
+		}).Debug("received heartbeat from client")
+
 		if recvData.Channel == consts.Service {
 
 			err = sourceInfo.FromBytes(recvData.Payload)

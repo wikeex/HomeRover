@@ -11,7 +11,7 @@ type SDPData struct {
 	SDPInfo		webrtc.SessionDescription
 }
 
-func (s SDPData) ToBytes() ([]byte, error) {
+func (s *SDPData) ToBytes() ([]byte, error) {
 
 	buffer := bytes.Buffer{}
 
@@ -24,7 +24,7 @@ func (s SDPData) ToBytes() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func (s SDPData) FromBytes(b []byte) error {
+func (s *SDPData) FromBytes(b []byte) error {
 	s.Type = b[0]
 	err := json.Unmarshal(b[1:], &s.SDPInfo)
 	if err != nil {
