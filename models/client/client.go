@@ -43,17 +43,17 @@ func (c *Client) FromBytes(b []byte) error {
 	if err != nil {
 		return err
 	}
-	c.CmdAddr, err = net.ResolveUDPAddr("udp", c.Info.IP + strconv.Itoa(int(c.Info.CmdPort)))
+	c.CmdAddr, err = net.ResolveUDPAddr("udp", c.Info.IP + ":" + strconv.Itoa(int(c.Info.CmdPort)))
 	if err != nil {
 		return err
 	}
 
-	c.VideoAddr, err = net.ResolveUDPAddr("udp", c.Info.IP + strconv.Itoa(int(c.Info.VideoPort)))
+	c.VideoAddr, err = net.ResolveUDPAddr("udp", c.Info.IP + ":" + strconv.Itoa(int(c.Info.VideoPort)))
 	if err != nil {
 		return err
 	}
 
-	c.AudioAddr, err = net.ResolveUDPAddr("udp", c.Info.IP + strconv.Itoa(int(c.Info.AudioPort)))
+	c.AudioAddr, err = net.ResolveUDPAddr("udp", c.Info.IP + ":" + strconv.Itoa(int(c.Info.AudioPort)))
 	if err != nil {
 		return err
 	}

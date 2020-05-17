@@ -109,16 +109,20 @@ func (s *Service)listenClients()  {
 			}
 
 			if recvData.Type == consts.Controller {
-				log.Logger.Info("controller heartbeat received")
+				log.Logger.WithFields(logrus.Fields{
+					"info": sourceInfo,
+				}).Info("controller heartbeat received")
 				sourceClient = &s.Groups[groupId].Controller
 				destClient = &s.Groups[groupId].Rover
 
 				s.TransMu.Lock()
-				s.Groups[groupId].Trans = &sourceInfo.Trans
+				s.Groups[groupId].Trans = &(sourceInfo.Trans)
 				s.TransMu.Unlock()
 
 			} else if recvData.Type == consts.Rover {
-				log.Logger.Info("rover heartbeat received")
+				log.Logger.WithFields(logrus.Fields{
+					"info": sourceInfo,
+				}).Info("rover heartbeat received")
 				sourceClient = &s.Groups[groupId].Rover
 				destClient = &s.Groups[groupId].Controller
 			}
@@ -128,6 +132,12 @@ func (s *Service)listenClients()  {
 			sourceClient.Info = sourceInfo
 			sourceClient.State = consts.Online
 			s.clientMu.Unlock()
+
+			log.Logger.WithFields(logrus.Fields{
+				"trans": s.Groups[groupId].Trans,
+				"source trans": sourceInfo.Trans,
+				"dest client": destClient,
+			}).Debug("generating response")
 
 			// send controller addr back
 			recvData.Payload, err = makeRespClientBytes(
@@ -142,6 +152,7 @@ func (s *Service)listenClients()  {
 			recvData.Type = consts.Server
 			recvData.Channel = consts.Service
 		}
+
 		log.Logger.WithFields(logrus.Fields{
 			"data": recvData,
 			"addr": addr.String(),
@@ -226,7 +237,11 @@ func makeRespClientBytes(c *client.Client, transRule *mode.Trans, forwardPort ui
 		Info:  client.Info{},
 	}
 
-	if transRule.Cmd {
+	if transRule == nil {
+		transRule = &mode.Trans{}
+	}
+
+	if (*transRule).Cmd {
 		// if cmd channel is HoldPunching mode
 		respClient.Info.CmdPort = c.Info.CmdPort
 	} else {
@@ -234,17 +249,19 @@ func makeRespClientBytes(c *client.Client, transRule *mode.Trans, forwardPort ui
 		respClient.Info.CmdPort = forwardPort
 	}
 
-	if transRule.Video {
+	if (*transRule).Video {
 		respClient.Info.VideoPort = c.Info.VideoPort
 	} else {
 		respClient.Info.VideoPort = forwardPort
 	}
 
-	if transRule.Audio {
+	if (*transRule).Audio {
 		respClient.Info.AudioPort = c.Info.AudioPort
 	} else {
 		respClient.Info.AudioPort = forwardPort
 	}
+
+	respClient.Info.IP = c.Info.IP
 
 	respBytes, err := respClient.ToBytes()
 	if err != nil {

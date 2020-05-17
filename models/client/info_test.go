@@ -43,4 +43,8 @@ func TestInfo(t *testing.T) {
 	}
 
 	t.Log(info2)
+
+	if info.Trans.Cmd {
+		t.Log("pass")
+	}
 }
