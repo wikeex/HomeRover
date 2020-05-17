@@ -72,7 +72,7 @@ func (s *Service) cmdRecv()  {
 				sendData.Type = consts.Rover
 				sendData.Channel = consts.Cmd
 				log.Logger.Info("send command response")
-				_, err = s.CmdConn.WriteToUDP(sendData.ToBytes(), s.DestClient.Info.CmdAddr)
+				_, err = s.CmdConn.WriteToUDP(sendData.ToBytes(), s.DestClient.CmdAddr)
 				if err != nil {
 					log.Logger.Error(err)
 				}
