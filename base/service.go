@@ -88,7 +88,9 @@ func (s *Service) ServerSend()  {
 	s.LocalInfoMu.RLock()
 	addrBytes, err := s.LocalInfo.ToBytes()
 	if err != nil {
-		log.Logger.Error(err)
+		log.Logger.WithFields(logrus.Fields{
+			"local info": s.LocalInfo,
+		}).Error(err)
 	}
 	sendObject := data.Data{
 		Type:     s.LocalInfo.Type,

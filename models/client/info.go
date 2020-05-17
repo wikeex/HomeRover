@@ -52,6 +52,9 @@ func (c *Info) ToBytes() ([]byte, error) {
 	buffer.Write(audioBytes)
 
 	// ip
+	if c.IP == "" {
+		c.IP = "0.0.0.0"
+	}
 	ipStrings := strings.Split(c.IP, ".")
 	for _, item := range ipStrings {
 		numInt, err := strconv.Atoi(item)
