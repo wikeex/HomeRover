@@ -126,11 +126,11 @@ func (s *Service) ServerRecv()  {
 
 	log.Logger.Info("starting server receive task")
 	for {
-		_, _, err := s.ServerConn.ReadFromUDP(recvBytes)
+		length, _, err := s.ServerConn.ReadFromUDP(recvBytes)
 		if err != nil {
 			log.Logger.Error(err)
 		}
-		err = recvData.FromBytes(recvBytes)
+		err = recvData.FromBytes(recvBytes[:length])
 		if err != nil {
 			log.Logger.Error(err)
 		}
@@ -149,7 +149,7 @@ func (s *Service) ServerRecv()  {
 
 			s.DestClientMu.RLock()
 			if s.DestClient.State == consts.Offline {
-				fmt.Println("rover is offline")
+				log.Logger.Info("rover is offline")
 			}
 			s.DestClientMu.RUnlock()
 		}

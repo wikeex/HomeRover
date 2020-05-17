@@ -33,17 +33,17 @@ func (c *Info) ToBytes() ([]byte, error) {
 	buffer.Write(idBytes)
 
 	// client addr
-	cmdBytes, err := infoToBytes(c.CmdAddr)
+	cmdBytes, err := addrToBytes(c.CmdAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	videoBytes, err := infoToBytes(c.VideoAddr)
+	videoBytes, err := addrToBytes(c.VideoAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	audioBytes, err := infoToBytes(c.AudioAddr)
+	audioBytes, err := addrToBytes(c.AudioAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +79,8 @@ func (c *Info) ToBytes() ([]byte, error) {
 
 	buffer.Write([]byte{modeByte})
 
+	buffer.Write([]byte{c.Type})
+
 	return buffer.Bytes(), nil
 }
 
@@ -86,17 +88,17 @@ func (c *Info) FromBytes(b []byte) error {
 	var err error
 	c.Id = binary.BigEndian.Uint16(b[:2])
 
-	c.CmdAddr, err = bytesToInfo(b[2:8])
+	c.CmdAddr, err = bytesToAddr(b[2:8])
 	if err != nil {
 		return err
 	}
 
-	c.VideoAddr, err = bytesToInfo(b[8:14])
+	c.VideoAddr, err = bytesToAddr(b[8:14])
 	if err != nil {
 		return err
 	}
 
-	c.AudioAddr, err = bytesToInfo(b[14:20])
+	c.AudioAddr, err = bytesToAddr(b[14:20])
 	if err != nil {
 		return err
 	}
@@ -122,10 +124,12 @@ func (c *Info) FromBytes(b []byte) error {
 		c.Trans.Audio = consts.ServerForwarding
 	}
 
+	c.Type = b[23]
+
 	return nil
 }
 
-func bytesToInfo(b []byte) (*net.UDPAddr, error) {
+func bytesToAddr(b []byte) (*net.UDPAddr, error) {
 	var ipStrings []string
 	for _, num := range b[:4] {
 		ipStrings = append(ipStrings, strconv.Itoa(int(num)))
@@ -139,9 +143,9 @@ func bytesToInfo(b []byte) (*net.UDPAddr, error) {
 	return addr, nil
 }
 
-func infoToBytes(addr *net.UDPAddr) ([]byte, error) {
+func addrToBytes(addr *net.UDPAddr) ([]byte, error) {
 	var buffer bytes.Buffer
-	tempString := strings.Split((*addr).String(), ":")
+	tempString := strings.Split(addr.String(), ":")
 	ipStrings := strings.Split(tempString[0], ".")
 	for _, item := range ipStrings {
 		numInt, err := strconv.Atoi(item)
@@ -150,10 +154,12 @@ func infoToBytes(addr *net.UDPAddr) ([]byte, error) {
 		}
 		buffer.Write([]byte{uint8(numInt)})
 	}
-	numInt, err := strconv.Atoi(tempString[1])
+	portInt, err := strconv.Atoi(tempString[1])
 	if err != nil {
 		return nil, err
 	}
-	buffer.Write([]byte{uint8(numInt)})
+	portBytes := make([]byte, 2)
+	binary.BigEndian.PutUint16(portBytes, uint16(portInt))
+	buffer.Write(portBytes)
 	return buffer.Bytes(), nil
 }

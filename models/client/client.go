@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"fmt"
 )
 
 type State uint8
@@ -28,6 +29,9 @@ func (c *Client) ToBytes() ([]byte, error) {
 }
 
 func (c *Client) FromBytes(b []byte) error {
+	if len(b) <= 0 {
+		return fmt.Errorf("bytes is empty")
+	}
 	c.State = State(b[0])
 
 	err := c.Info.FromBytes(b[1:])
