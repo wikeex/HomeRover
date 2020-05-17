@@ -3,3 +3,7 @@ outputs/
 .idea/
 venv/
 *.log
+
+serverd
+controllerd
+roverd
