@@ -102,6 +102,7 @@ func (s *Service)listenClients()  {
 		if recvData.Channel == consts.Service {
 
 			err = sourceInfo.FromBytes(recvData.Payload)
+			sourceInfo.IP = addr.IP.String()
 			groupId = sourceInfo.GroupId
 			if err != nil {
 				log.Logger.Error(err)
@@ -132,7 +133,7 @@ func (s *Service)listenClients()  {
 			recvData.Payload, err = makeRespClientBytes(
 				destClient,
 				s.Groups[groupId].Trans,
-				s.forwardAddr,
+				uint16(s.conf.ForwardPort),
 			)
 			if err != nil {
 				log.Logger.Error(err)
@@ -182,21 +183,21 @@ func (s *Service) forward()  {
 		switch recvData.Channel {
 		case consts.Cmd:
 			if recvData.Type == consts.Controller {
-				addr = s.Groups[recvEntity.GroupId].Rover.Info.CmdAddr
+				addr = s.Groups[recvEntity.GroupId].Rover.CmdAddr
 			} else {
-				addr = s.Groups[recvEntity.GroupId].Controller.Info.CmdAddr
+				addr = s.Groups[recvEntity.GroupId].Controller.CmdAddr
 			}
 		case consts.Video:
 			if recvData.Type == consts.Controller {
-				addr = s.Groups[recvEntity.GroupId].Rover.Info.VideoAddr
+				addr = s.Groups[recvEntity.GroupId].Rover.VideoAddr
 			} else {
-				addr = s.Groups[recvEntity.GroupId].Controller.Info.VideoAddr
+				addr = s.Groups[recvEntity.GroupId].Controller.VideoAddr
 			}
 		case consts.Audio:
 			if recvData.Type == consts.Controller {
-				addr = s.Groups[recvEntity.GroupId].Rover.Info.AudioAddr
+				addr = s.Groups[recvEntity.GroupId].Rover.AudioAddr
 			} else {
-				addr = s.Groups[recvEntity.GroupId].Controller.Info.AudioAddr
+				addr = s.Groups[recvEntity.GroupId].Controller.AudioAddr
 			}
 		}
 
@@ -219,7 +220,7 @@ func (s *Service) Run() {
 	select {}
 }
 
-func makeRespClientBytes(c *client.Client, transRule *mode.Trans, forwardAddr *net.UDPAddr) ([]byte, error) {
+func makeRespClientBytes(c *client.Client, transRule *mode.Trans, forwardPort uint16) ([]byte, error) {
 	respClient := client.Client{
 		State: c.State,
 		Info:  client.Info{},
@@ -227,22 +228,22 @@ func makeRespClientBytes(c *client.Client, transRule *mode.Trans, forwardAddr *n
 
 	if transRule.Cmd {
 		// if cmd channel is HoldPunching mode
-		respClient.Info.CmdAddr = c.Info.CmdAddr
+		respClient.Info.CmdPort = c.Info.CmdPort
 	} else {
 		// cmd channel is forwarding mode
-		respClient.Info.CmdAddr = forwardAddr
+		respClient.Info.CmdPort = forwardPort
 	}
 
 	if transRule.Video {
-		respClient.Info.VideoAddr = c.Info.VideoAddr
+		respClient.Info.VideoPort = c.Info.VideoPort
 	} else {
-		respClient.Info.VideoAddr = forwardAddr
+		respClient.Info.VideoPort = forwardPort
 	}
 
 	if transRule.Audio {
-		respClient.Info.AudioAddr = c.Info.AudioAddr
+		respClient.Info.AudioPort = c.Info.AudioPort
 	} else {
-		respClient.Info.AudioAddr = forwardAddr
+		respClient.Info.AudioPort = forwardPort
 	}
 
 	respBytes, err := respClient.ToBytes()

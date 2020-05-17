@@ -16,17 +16,18 @@ import (
 	"time"
 )
 
-func allocatePort(conn **net.UDPConn) (*net.UDPAddr, error) {
+func allocatePort(conn **net.UDPConn) (uint16, error) {
 	rand.Seed(time.Now().UnixNano())
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%d", rand.Intn(55535) + 10000))
+	port := rand.Intn(55535) + 10000
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
 		return allocatePort(conn)
 	}
 	*conn, err = net.ListenUDP("udp", addr)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	return addr, nil
+	return uint16(port), nil
 }
 
 
@@ -56,15 +57,15 @@ func (s *Service) InitConn() error {
 	if err != nil {
 		return err
 	}
-	s.LocalInfo.CmdAddr, err = allocatePort(&s.CmdConn)
+	s.LocalInfo.CmdPort, err = allocatePort(&s.CmdConn)
 	if err != nil {
 		return err
 	}
-	s.LocalInfo.VideoAddr, err = allocatePort(&s.VideoConn)
+	s.LocalInfo.VideoPort, err = allocatePort(&s.VideoConn)
 	if err != nil {
 		return err
 	}
-	s.LocalInfo.AudioAddr, err = allocatePort(&s.AudioConn)
+	s.LocalInfo.AudioPort, err = allocatePort(&s.AudioConn)
 	if err != nil {
 		return err
 	}
@@ -75,9 +76,9 @@ func (s *Service) InitConn() error {
 	s.WebrtcSignal = make(chan bool, 1)
 
 	log.Logger.WithFields(logrus.Fields{
-		"cmd addr": s.LocalInfo.CmdAddr.String(),
-		"video addr": s.LocalInfo.VideoAddr.String(),
-		"audio addr": s.LocalInfo.AudioAddr.String(),
+		"cmd port": s.LocalInfo.CmdPort,
+		"video port": s.LocalInfo.VideoPort,
+		"audio port": s.LocalInfo.AudioPort,
 	}).Info("allocated local port")
 
 	return nil
@@ -190,7 +191,7 @@ func (s *Service) SendSDP(second uint16, endSignal chan bool)  {
 	log.Logger.Info("start sdp send task")
 	for range time.Tick(3000 * time.Millisecond){
 		s.LocalInfoMu.RLock()
-		_, err = s.VideoConn.WriteToUDP(sendObject.ToBytes(), s.LocalInfo.VideoAddr)
+		_, err = s.VideoConn.WriteToUDP(sendObject.ToBytes(), s.DestClient.VideoAddr)
 		s.LocalInfoMu.RUnlock()
 		log.Logger.WithFields(logrus.Fields{
 			"sdp info": sdp.SDPInfo,

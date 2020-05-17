@@ -3,25 +3,10 @@ package client
 import (
 	"HomeRover/consts"
 	"HomeRover/models/mode"
-	"net"
 	"testing"
 )
 
 func TestInfo(t *testing.T) {
-	cmdAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:10000")
-	if err != nil {
-		t.Error(err)
-	}
-
-	videoAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:10001")
-	if err != nil {
-		t.Error(err)
-	}
-
-	audioAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:10002")
-	if err != nil {
-		t.Error(err)
-	}
 
 	trans := mode.Trans{
 		Cmd: consts.HoldPunching,
@@ -33,9 +18,10 @@ func TestInfo(t *testing.T) {
 	}
 
 	info := Info{
-		CmdAddr: cmdAddr,
-		VideoAddr: videoAddr,
-		AudioAddr: audioAddr,
+		CmdPort: 10000,
+		VideoPort: 10001,
+		AudioPort: 10002,
+		IP: "127.0.0.1",
 		Id: 1000,
 		GroupId: 1000,
 		Type: 1,

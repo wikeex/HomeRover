@@ -3,6 +3,8 @@ package client
 import (
 	"bytes"
 	"fmt"
+	"net"
+	"strconv"
 )
 
 type State uint8
@@ -10,6 +12,9 @@ type State uint8
 // Controller and Rover are all Client
 type Client struct {
 	State State
+	CmdAddr		*net.UDPAddr
+	VideoAddr	*net.UDPAddr
+	AudioAddr	*net.UDPAddr
 	Info  Info
 }
 
@@ -35,6 +40,20 @@ func (c *Client) FromBytes(b []byte) error {
 	c.State = State(b[0])
 
 	err := c.Info.FromBytes(b[1:])
+	if err != nil {
+		return err
+	}
+	c.CmdAddr, err = net.ResolveUDPAddr("udp", c.Info.IP + strconv.Itoa(int(c.Info.CmdPort)))
+	if err != nil {
+		return err
+	}
+
+	c.VideoAddr, err = net.ResolveUDPAddr("udp", c.Info.IP + strconv.Itoa(int(c.Info.VideoPort)))
+	if err != nil {
+		return err
+	}
+
+	c.AudioAddr, err = net.ResolveUDPAddr("udp", c.Info.IP + strconv.Itoa(int(c.Info.AudioPort)))
 	if err != nil {
 		return err
 	}

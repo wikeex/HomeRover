@@ -5,7 +5,6 @@ import (
 	"HomeRover/models/mode"
 	"bytes"
 	"encoding/binary"
-	"net"
 	"strconv"
 	"strings"
 )
@@ -13,10 +12,11 @@ import (
 type Info struct {
 	Id					uint16
 
-	// every addr takes 6 Bytes, 4 Bytes for IP, 2 Bytes for Port
-	CmdAddr				*net.UDPAddr
-	VideoAddr			*net.UDPAddr
-	AudioAddr			*net.UDPAddr
+	CmdPort				uint16
+	VideoPort			uint16
+	AudioPort			uint16
+
+	IP					string
 
 	GroupId				uint16
 	Trans				mode.Trans
@@ -33,23 +33,33 @@ func (c *Info) ToBytes() ([]byte, error) {
 	buffer.Write(idBytes)
 
 	// client addr
-	cmdBytes, err := addrToBytes(c.CmdAddr)
+	cmdBytes, err := portToBytes(c.CmdPort)
 	if err != nil {
 		return nil, err
 	}
 
-	videoBytes, err := addrToBytes(c.VideoAddr)
+	videoBytes, err := portToBytes(c.VideoPort)
 	if err != nil {
 		return nil, err
 	}
 
-	audioBytes, err := addrToBytes(c.AudioAddr)
+	audioBytes, err := portToBytes(c.AudioPort)
 	if err != nil {
 		return nil, err
 	}
 	buffer.Write(cmdBytes)
 	buffer.Write(videoBytes)
 	buffer.Write(audioBytes)
+
+	// ip
+	ipStrings := strings.Split(c.IP, ".")
+	for _, item := range ipStrings {
+		numInt, err := strconv.Atoi(item)
+		if err != nil {
+			return nil, err
+		}
+		buffer.Write([]byte{uint8(numInt)})
+	}
 
 	// client group id
 	groupIdBytes := make([]byte, 2)
@@ -85,27 +95,21 @@ func (c *Info) ToBytes() ([]byte, error) {
 }
 
 func (c *Info) FromBytes(b []byte) error {
-	var err error
 	c.Id = binary.BigEndian.Uint16(b[:2])
 
-	c.CmdAddr, err = bytesToAddr(b[2:8])
-	if err != nil {
-		return err
+	c.CmdPort = binary.BigEndian.Uint16(b[2:4])
+	c.VideoPort = binary.BigEndian.Uint16(b[4:6])
+	c.AudioPort = binary.BigEndian.Uint16(b[6:8])
+
+	var ipStrings []string
+	for _, num := range b[8:12] {
+		ipStrings = append(ipStrings, strconv.Itoa(int(num)))
 	}
+	c.IP = strings.Join(ipStrings, ".")
 
-	c.VideoAddr, err = bytesToAddr(b[8:14])
-	if err != nil {
-		return err
-	}
+	c.GroupId = binary.BigEndian.Uint16(b[12:14])
 
-	c.AudioAddr, err = bytesToAddr(b[14:20])
-	if err != nil {
-		return err
-	}
-
-	c.GroupId = binary.BigEndian.Uint16(b[20:22])
-
-	modeByte := b[22]
+	modeByte := b[14]
 	if modeByte & 1 << 2 == 4 {
 		c.Trans.Cmd = consts.HoldPunching
 	} else {
@@ -124,42 +128,16 @@ func (c *Info) FromBytes(b []byte) error {
 		c.Trans.Audio = consts.ServerForwarding
 	}
 
-	c.Type = b[23]
+	c.Type = b[15]
 
 	return nil
 }
 
-func bytesToAddr(b []byte) (*net.UDPAddr, error) {
-	var ipStrings []string
-	for _, num := range b[:4] {
-		ipStrings = append(ipStrings, strconv.Itoa(int(num)))
-	}
-	ip := strings.Join(ipStrings, ".")
-	port := strconv.Itoa(int(binary.BigEndian.Uint16(b[4:])))
-	addr, err := net.ResolveUDPAddr("udp", strings.Join([]string{ip, port}, ":"))
-	if err != nil {
-		return nil, err
-	}
-	return addr, nil
-}
-
-func addrToBytes(addr *net.UDPAddr) ([]byte, error) {
+func portToBytes(port uint16) ([]byte, error) {
 	var buffer bytes.Buffer
-	tempString := strings.Split(addr.String(), ":")
-	ipStrings := strings.Split(tempString[0], ".")
-	for _, item := range ipStrings {
-		numInt, err := strconv.Atoi(item)
-		if err != nil {
-			return nil, err
-		}
-		buffer.Write([]byte{uint8(numInt)})
-	}
-	portInt, err := strconv.Atoi(tempString[1])
-	if err != nil {
-		return nil, err
-	}
+
 	portBytes := make([]byte, 2)
-	binary.BigEndian.PutUint16(portBytes, uint16(portInt))
+	binary.BigEndian.PutUint16(portBytes, port)
 	buffer.Write(portBytes)
 	return buffer.Bytes(), nil
 }
