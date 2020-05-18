@@ -8,8 +8,8 @@ import (
 	"HomeRover/models/config"
 	"HomeRover/models/data"
 	"flag"
-	"fmt"
 	"github.com/pion/webrtc/v2"
+	"github.com/sirupsen/logrus"
 	"math/rand"
 	"net"
 	"runtime"
@@ -33,7 +33,7 @@ type Service struct {
 	roverConf 		*config.RoverConfig
 	joystickDataCh	chan []byte
 
-	cmdServiceConn	*net.UDPConn
+	cmdServiceConn	net.Conn
 }
 
 func (s *Service) cmdRecv()  {
@@ -71,7 +71,9 @@ func (s *Service) cmdRecv()  {
 				sendData.Payload = sendEntity.ToBytes()
 				sendData.Type = consts.Rover
 				sendData.Channel = consts.Cmd
-				log.Logger.Info("send command response")
+				log.Logger.WithFields(logrus.Fields{
+					"counter": counter,
+				}).Info("send command response")
 				_, err = s.CmdConn.WriteToUDP(sendData.ToBytes(), s.DestClient.CmdAddr)
 				if err != nil {
 					log.Logger.Error(err)
@@ -82,13 +84,8 @@ func (s *Service) cmdRecv()  {
 }
 
 func (s *Service) cmdService()  {
-	cmdServiceAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("127.0.0.1:%d", s.roverConf.CmdServicePort))
-	if err != nil {
-		log.Logger.Error(err)
-	}
-
-	sendAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:" + strconv.Itoa(s.roverConf.CmdServicePort))
-	s.cmdServiceConn, err = net.ListenUDP("udp", sendAddr)
+	var err error
+	s.cmdServiceConn, err = net.Dial("udp", "127.0.0.1:" + strconv.Itoa(s.roverConf.CmdServicePort))
 	if err != nil {
 		log.Logger.Error(err)
 	}
@@ -101,7 +98,7 @@ func (s *Service) cmdService()  {
 
 	log.Logger.Info("command to device driver task start...")
 	for {
-		_, err = s.cmdServiceConn.WriteToUDP(<- s.joystickDataCh, cmdServiceAddr)
+		_, err = s.cmdServiceConn.Write(<- s.joystickDataCh)
 		if err != nil {
 			log.Logger.Error(err)
 		}
