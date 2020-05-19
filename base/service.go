@@ -86,7 +86,7 @@ func (s *Service) InitConn() error {
 
 func (s *Service) ServerSend()  {
 	s.LocalInfoMu.RLock()
-	addrBytes, err := s.LocalInfo.ToBytes()
+	infoBytes, err := s.LocalInfo.ToBytes()
 	if err != nil {
 		log.Logger.WithFields(logrus.Fields{
 			"local info": s.LocalInfo,
@@ -96,7 +96,7 @@ func (s *Service) ServerSend()  {
 		Type:     s.LocalInfo.Type,
 		Channel:  consts.Service,
 		OrderNum: 0,
-		Payload:  addrBytes,
+		Payload:  infoBytes,
 	}
 	s.LocalInfoMu.RUnlock()
 
@@ -111,6 +111,7 @@ func (s *Service) ServerSend()  {
 	log.Logger.Info("starting server send task")
 	for range time.Tick(time.Second){
 		log.Logger.WithFields(logrus.Fields{
+			"info data": s.LocalInfo,
 			"send bytes": sendData,
 			"addr": addr.String(),
 		}).Debug("send heartbeat to server")

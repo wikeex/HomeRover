@@ -113,13 +113,13 @@ func (c *Info) FromBytes(b []byte) error {
 	c.GroupId = binary.BigEndian.Uint16(b[12:14])
 
 	modeByte := b[14]
-	if modeByte & 1 << 2 == 4 {
+	if modeByte & (1 << 2) == 4 {
 		c.Trans.Cmd = consts.HoldPunching
 	} else {
 		c.Trans.Cmd = consts.ServerForwarding
 	}
 
-	if modeByte & 1 << 1 == 2 {
+	if modeByte & (1 << 1) == 2 {
 		c.Trans.Video = consts.HoldPunching
 	} else {
 		c.Trans.Video = consts.ServerForwarding

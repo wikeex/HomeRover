@@ -69,6 +69,10 @@ func (s *Service) cmdSend()  {
 			if err != nil {
 				log.Logger.Debug(err)
 			}
+			log.Logger.WithFields(logrus.Fields{
+				"send data": sendData,
+				"rover addr": s.DestClient.CmdAddr,
+			}).Debug("send command to rover")
 		}
 		s.DestClientMu.RUnlock()
 	}

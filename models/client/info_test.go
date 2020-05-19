@@ -9,7 +9,7 @@ import (
 func TestInfo(t *testing.T) {
 
 	trans := mode.Trans{
-		Cmd: consts.HoldPunching,
+		Cmd: consts.ServerForwarding,
 		Video: consts.HoldPunching,
 		Audio: consts.HoldPunching,
 		CmdState: true,

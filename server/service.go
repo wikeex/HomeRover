@@ -111,6 +111,7 @@ func (s *Service)listenClients()  {
 			if recvData.Type == consts.Controller {
 				log.Logger.WithFields(logrus.Fields{
 					"info": sourceInfo,
+					"addr": addr.IP.String(),
 				}).Info("controller heartbeat received")
 				sourceClient = &s.Groups[groupId].Controller
 				destClient = &s.Groups[groupId].Rover
@@ -122,6 +123,7 @@ func (s *Service)listenClients()  {
 			} else if recvData.Type == consts.Rover {
 				log.Logger.WithFields(logrus.Fields{
 					"info": sourceInfo,
+					"addr": addr.IP.String(),
 				}).Info("rover heartbeat received")
 				sourceClient = &s.Groups[groupId].Rover
 				destClient = &s.Groups[groupId].Controller
