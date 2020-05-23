@@ -105,15 +105,15 @@ func (s *Service) handleClient(conn net.Conn)  {
 			}).Error("deserialization data error")
 		}
 
-		log.Logger.WithFields(logrus.Fields{
-			"received data": recvData,
-		}).Debug("received heartbeat from client")
-
 		err = tempClient.FromBytes(recvData.Payload)
 		if err != nil {
 			log.Logger.Error(err)
 		}
 		groupId = tempClient.GroupId
+
+		log.Logger.WithFields(logrus.Fields{
+			"received bytes": recvBytes[:25],
+		}).Info("received bytes from client")
 
 		if recvData.Type == consts.Controller {
 			log.Logger.WithFields(logrus.Fields{
@@ -129,6 +129,8 @@ func (s *Service) handleClient(conn net.Conn)  {
 			}).Info("rover heartbeat received")
 			sourceClient = &s.Groups[groupId].Rover
 			destClient = &s.Groups[groupId].Controller
+		} else {
+			continue
 		}
 
 		localAddr := conn.LocalAddr()

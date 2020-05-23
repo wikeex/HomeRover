@@ -132,7 +132,7 @@ func (s *Service) webrtc()  {
 	timeout := make(chan bool, 1)
 
 	go func() {
-		for range time.Tick(time.Duration(3e9)) {
+		for range time.Tick(time.Duration(5e9)) {
 			timeout <- true
 		}
 	}()

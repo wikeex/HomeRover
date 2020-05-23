@@ -80,7 +80,7 @@ func (s *Service) ServerSend()  {
 	for range time.Tick(time.Second){
 		log.Logger.WithFields(logrus.Fields{
 			"order num": sendObject.OrderNum,
-			"addr": s.ServerConn.LocalAddr().String(),
+			"send bytes": sendData[:25],
 		}).Debug("send heartbeat to server")
 
 		_, err = s.ServerConn.Write(sendData)
@@ -100,6 +100,7 @@ func (s *Service) ServerSend()  {
 			sendObject.Channel = consts.SDPExchange
 		default:
 			sendObject.OrderNum++
+			sendObject.Payload = []byte{}
 		}
 		sendData = sendObject.ToBytes()
 	}
