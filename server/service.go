@@ -6,7 +6,6 @@ import (
 	"HomeRover/models/client"
 	"HomeRover/models/config"
 	"HomeRover/models/data"
-	"HomeRover/models/mode"
 	"HomeRover/models/server"
 	"fmt"
 	mapset "github.com/deckarep/golang-set"
@@ -31,11 +30,8 @@ type Service struct {
 	TransMu				sync.RWMutex
 	clientMu			sync.RWMutex
 
-	serviceAddr			*net.UDPAddr
-	forwardAddr			*net.UDPAddr
-
-	serviceConn 		*net.UDPConn
-	forwardConn			*net.UDPConn
+	serviceAddr			*net.TCPAddr
+	serviceListener 	*net.TCPListener
 }
 
 func (s *Service) init() error {
@@ -44,25 +40,17 @@ func (s *Service) init() error {
 	groupSet.Add(uint16(2))
 	s.Groups[0] = &server.Group{
 		Id: 0,
-		Rover: client.Client{
-			Info: client.Info{Id: 1},
-		},
-		Controller: client.Client{
-			Info: client.Info{Id: 2},
-		},
+		Rover: client.Client{Id: 1},
+		Controller: client.Client{Id: 2},
 	}
 
 	var err error
 	s.confMu.RLock()
-	s.serviceAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%d", s.conf.ServicePort))
+	s.serviceAddr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("0.0.0.0:%d", s.conf.ServicePort))
 	if err != nil {
 		return err
 	}
-	s.serviceConn, err = net.ListenUDP("udp", s.serviceAddr)
-	if err != nil {
-		return err
-	}
-	s.forwardAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("0.0.0.0:%d", s.conf.ForwardPort))
+	s.serviceListener, err = net.ListenTCP("tcp", s.serviceAddr)
 	if err != nil {
 		return err
 	}
@@ -72,20 +60,35 @@ func (s *Service) init() error {
 }
 
 func (s *Service)listenClients()  {
+
+	log.Logger.Info("listen client task starting...")
+	for {
+		conn, err := s.serviceListener.Accept()
+		if err != nil {
+			log.Logger.Error(err)
+			continue
+		}
+		go s.handleClient(conn)
+	}
+}
+
+func (s *Service) handleClient(conn net.Conn)  {
 	recvBytes := make([]byte, s.conf.PackageLen)
 	recvData := data.Data{}
 	var (
 		err        		error
-		addr       		*net.UDPAddr
-		sourceInfo		client.Info
+		addr       		*net.TCPAddr
+
+		// tempClient use to resolve groupId
+		tempClient		client.Client
 		sourceClient	*client.Client
 		destClient		*client.Client
 		groupId			uint16
+		onceTask		sync.Once
 	)
 
-	log.Logger.Info("listen client task starting...")
 	for {
-		_, addr, err = s.serviceConn.ReadFromUDP(recvBytes)
+		_, err = conn.Read(recvBytes)
 		if err != nil {
 			log.Logger.Error(err)
 		}
@@ -99,125 +102,85 @@ func (s *Service)listenClients()  {
 			"received data": recvData,
 		}).Debug("received heartbeat from client")
 
-		if recvData.Channel == consts.Service {
-
-			err = sourceInfo.FromBytes(recvData.Payload)
-			sourceInfo.IP = addr.IP.String()
-			groupId = sourceInfo.GroupId
-			if err != nil {
-				log.Logger.Error(err)
-			}
-
-			if recvData.Type == consts.Controller {
-				log.Logger.WithFields(logrus.Fields{
-					"info": sourceInfo,
-					"addr": addr.IP.String(),
-				}).Info("controller heartbeat received")
-				sourceClient = &s.Groups[groupId].Controller
-				destClient = &s.Groups[groupId].Rover
-
-				s.TransMu.Lock()
-				s.Groups[groupId].Trans = &(sourceInfo.Trans)
-				s.TransMu.Unlock()
-
-			} else if recvData.Type == consts.Rover {
-				log.Logger.WithFields(logrus.Fields{
-					"info": sourceInfo,
-					"addr": addr.IP.String(),
-				}).Info("rover heartbeat received")
-				sourceClient = &s.Groups[groupId].Rover
-				destClient = &s.Groups[groupId].Controller
-			}
-
-			// get the dest client from s.Groups
-			s.clientMu.Lock()
-			sourceClient.Info = sourceInfo
-			sourceClient.State = consts.Online
-			s.clientMu.Unlock()
-
-			log.Logger.WithFields(logrus.Fields{
-				"trans": s.Groups[groupId].Trans,
-				"source trans": sourceInfo.Trans,
-				"dest client": destClient,
-			}).Debug("generating response")
-
-			// send controller addr back
-			recvData.Payload, err = makeRespClientBytes(
-				destClient,
-				s.Groups[groupId].Trans,
-				uint16(s.conf.ForwardPort),
-			)
-			if err != nil {
-				log.Logger.Error(err)
-			}
-
-			recvData.Type = consts.Server
-			recvData.Channel = consts.Service
+		err = tempClient.FromBytes(recvData.Payload)
+		if err != nil {
+			log.Logger.Error(err)
 		}
+		groupId = tempClient.GroupId
+
+		if recvData.Type == consts.Controller {
+			log.Logger.WithFields(logrus.Fields{
+				"client": sourceClient,
+				"addr": addr.IP.String(),
+			}).Info("controller heartbeat received")
+			sourceClient = &s.Groups[groupId].Controller
+			destClient = &s.Groups[groupId].Rover
+		} else if recvData.Type == consts.Rover {
+			log.Logger.WithFields(logrus.Fields{
+				"client": sourceClient,
+				"addr": addr.IP.String(),
+			}).Info("rover heartbeat received")
+			sourceClient = &s.Groups[groupId].Rover
+			destClient = &s.Groups[groupId].Controller
+		}
+
+		*sourceClient.Addr = conn.LocalAddr()
+
+		// get the dest client from s.Groups
+		s.clientMu.Lock()
+		sourceClient.State = consts.Online
+		s.clientMu.Unlock()
+
+		// create a goroutine to send sdp info
+		onceTask.Do(func() {
+			go func() {
+				var err error
+				for {
+					s.clientMu.Lock()
+					_, err = conn.Write(<- sourceClient.SendCh)
+					if err != nil {
+						log.Logger.WithFields(logrus.Fields{
+							"error": err,
+						}).Error("send sdp package error")
+					}
+					s.clientMu.Unlock()
+				}
+			}()
+		})
 
 		log.Logger.WithFields(logrus.Fields{
-			"data": recvData,
-			"addr": addr.String(),
-		}).Info("send heartbeat response to client")
-		_, err = s.serviceConn.WriteToUDP(recvData.ToBytes(), addr)
-		if err != nil {
-			log.Logger.Error(err)
-		}
-	}
-}
+			"dest client": destClient,
+		}).Debug("generating response")
 
-func (s *Service) forward()  {
-	recvBytes := make([]byte, s.conf.PackageLen)
-	var (
-		err			error
-		addr		*net.UDPAddr
-		recvData	data.Data
-		recvEntity	data.EntityData
-	)
-
-	log.Logger.Info("forward task starting...")
-	for {
-		_, _, err = s.serviceConn.ReadFromUDP(recvBytes)
+		// send controller addr back
+		recvData.Payload, err = destClient.ToBytes()
 		if err != nil {
 			log.Logger.Error(err)
 		}
 
-		err = recvData.FromBytes(recvBytes)
-		if err != nil {
-			log.Logger.Error(err)
-		}
+		if recvData.Channel == consts.Service {
+			recvData.Type = consts.Server
+			recvData.Channel = consts.Service
 
-		err = recvEntity.FromBytes(recvData.Payload)
-		if err != nil {
-			log.Logger.Error(err)
-		}
+			log.Logger.WithFields(logrus.Fields{
+				"data": recvData,
+				"addr": addr.String(),
+			}).Info("send heartbeat response to client")
 
-		log.Logger.WithFields(logrus.Fields{"data": recvEntity}).Info("forward data received")
-		switch recvData.Channel {
-		case consts.Cmd:
-			if recvData.Type == consts.Controller {
-				addr = s.Groups[recvEntity.GroupId].Rover.CmdAddr
-			} else {
-				addr = s.Groups[recvEntity.GroupId].Controller.CmdAddr
+			_, err = conn.Write(recvData.ToBytes())
+			if err != nil {
+				log.Logger.Error(err)
 			}
-		case consts.Video:
-			if recvData.Type == consts.Controller {
-				addr = s.Groups[recvEntity.GroupId].Rover.VideoAddr
-			} else {
-				addr = s.Groups[recvEntity.GroupId].Controller.VideoAddr
-			}
-		case consts.Audio:
-			if recvData.Type == consts.Controller {
-				addr = s.Groups[recvEntity.GroupId].Rover.AudioAddr
-			} else {
-				addr = s.Groups[recvEntity.GroupId].Controller.AudioAddr
-			}
-		}
+		} else if recvData.Channel == consts.SDPReq ||
+			recvData.Channel == consts.SDPExchange ||
+			recvData.Channel == consts.SDPEnd {
 
-		log.Logger.Info("forward data send")
-		_, err = s.forwardConn.WriteToUDP(recvBytes, addr)
-		if err != nil {
-			log.Logger.Error(err)
+			log.Logger.WithFields(logrus.Fields{
+				"data": recvData,
+				"addr": (*destClient.Addr).String(),
+			}).Info("forward sdp package to destination client")
+
+			destClient.SendCh <- recvBytes
 		}
 	}
 }
@@ -231,44 +194,4 @@ func (s *Service) Run() {
 	
 	go s.listenClients()
 	select {}
-}
-
-func makeRespClientBytes(c *client.Client, transRule *mode.Trans, forwardPort uint16) ([]byte, error) {
-	respClient := client.Client{
-		State: c.State,
-		Info:  client.Info{},
-	}
-
-	if transRule == nil {
-		transRule = &mode.Trans{}
-	}
-
-	if (*transRule).Cmd {
-		// if cmd channel is HoldPunching mode
-		respClient.Info.CmdPort = c.Info.CmdPort
-	} else {
-		// cmd channel is forwarding mode
-		respClient.Info.CmdPort = forwardPort
-	}
-
-	if (*transRule).Video {
-		respClient.Info.VideoPort = c.Info.VideoPort
-	} else {
-		respClient.Info.VideoPort = forwardPort
-	}
-
-	if (*transRule).Audio {
-		respClient.Info.AudioPort = c.Info.AudioPort
-	} else {
-		respClient.Info.AudioPort = forwardPort
-	}
-
-	respClient.Info.IP = c.Info.IP
-
-	respBytes, err := respClient.ToBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	return respBytes, nil
 }

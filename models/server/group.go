@@ -2,7 +2,6 @@ package server
 
 import (
 	"HomeRover/models/client"
-	"HomeRover/models/mode"
 )
 
 type Group struct {
@@ -10,8 +9,6 @@ type Group struct {
 
 	Rover      client.Client
 	Controller client.Client
-
-	Trans 		*mode.Trans
 }
 
 
