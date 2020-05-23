@@ -40,11 +40,13 @@ func (s *Service) init() error {
 	groupSet.Add(uint16(2))
 	s.Groups[0] = &server.Group{
 		Id: 0,
-		Rover: client.Client{Id: 1},
-		Controller: client.Client{Id: 2},
+		Rover: client.Client{Id: 1, SendCh: make(chan []byte, 1)},
+		Controller: client.Client{Id: 2, SendCh: make(chan []byte, 1)},
 	}
 
 	var err error
+
+	s.clientMu.Lock()
 	s.confMu.RLock()
 	s.serviceAddr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("0.0.0.0:%d", s.conf.ServicePort))
 	if err != nil {
@@ -55,6 +57,7 @@ func (s *Service) init() error {
 		return err
 	}
 	s.confMu.RUnlock()
+	s.clientMu.Unlock()
 
 	return nil
 }
@@ -103,7 +106,6 @@ func (s *Service) handleClient(conn net.Conn)  {
 		}
 
 		log.Logger.WithFields(logrus.Fields{
-			"received bytes": recvBytes,
 			"received data": recvData,
 		}).Debug("received heartbeat from client")
 
@@ -130,26 +132,32 @@ func (s *Service) handleClient(conn net.Conn)  {
 		}
 
 		localAddr := conn.LocalAddr()
+
+		s.clientMu.Lock()
 		sourceClient.Addr = &localAddr
 
 		// get the dest client from s.Groups
-		s.clientMu.Lock()
 		sourceClient.State = consts.Online
 		s.clientMu.Unlock()
 
 		// create a goroutine to send sdp info
 		onceTask.Do(func() {
 			go func() {
-				var err error
+				var (
+					err 	error
+				)
+
+				s.clientMu.RLock()
+				dataCh := sourceClient.SendCh
+				s.clientMu.RUnlock()
+
 				for {
-					s.clientMu.Lock()
-					_, err = conn.Write(<- sourceClient.SendCh)
+					_, err = conn.Write(<- dataCh)
 					if err != nil {
 						log.Logger.WithFields(logrus.Fields{
 							"error": err,
 						}).Error("send sdp package error")
 					}
-					s.clientMu.Unlock()
 				}
 			}()
 		})
@@ -183,10 +191,13 @@ func (s *Service) handleClient(conn net.Conn)  {
 
 			log.Logger.WithFields(logrus.Fields{
 				"data": recvData,
-				"addr": (*destClient.Addr).String(),
 			}).Info("forward sdp package to destination client")
 
-			destClient.SendCh <- recvBytes
+			s.clientMu.Lock()
+			if destClient.Addr != nil {
+				destClient.SendCh <- recvBytes
+			}
+			s.clientMu.Unlock()
 		}
 	}
 }

@@ -79,8 +79,7 @@ func (s *Service) ServerSend()  {
 	log.Logger.Info("starting server send task")
 	for range time.Tick(time.Second){
 		log.Logger.WithFields(logrus.Fields{
-			"info data": s.LocalClient,
-			"send bytes": sendData,
+			"order num": sendObject.OrderNum,
 			"addr": s.ServerConn.LocalAddr().String(),
 		}).Debug("send heartbeat to server")
 
@@ -122,6 +121,7 @@ func (s *Service) ServerRecv()  {
 		}
 
 		log.Logger.WithFields(logrus.Fields{
+			"response bytes": recvBytes,
 			"response data": recvData,
 		}).Info("received heartbeat response")
 
