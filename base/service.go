@@ -91,7 +91,13 @@ func (s *Service) ServerSend()  {
 
 		select {
 		case localOffer := <- s.LocalSDPCh:
-			sendObject.Payload = []byte(utils.Encode(localOffer))
+			s.LocalClient.Payload = []byte(utils.Encode(localOffer))
+			sendObject.Payload, err = s.LocalClient.ToBytes()
+			if err != nil {
+				log.Logger.WithFields(logrus.Fields{
+					"error": err,
+				}).Error("serialize local client error")
+			}
 			sendObject.Channel = consts.SDPExchange
 		default:
 			sendObject.OrderNum++
@@ -119,22 +125,22 @@ func (s *Service) ServerRecv()  {
 			"response data": recvData,
 		}).Info("received heartbeat response")
 
-		if recvData.Type == consts.Server && recvData.Channel == consts.Service {
-			s.DestClientMu.Lock()
-			err = s.DestClient.FromBytes(recvData.Payload)
-			if err != nil {
-				log.Logger.Error(err)
-			}
-			s.DestClientMu.Unlock()
+		s.DestClientMu.Lock()
+		err = s.DestClient.FromBytes(recvData.Payload)
+		if err != nil {
+			log.Logger.Error(err)
+		}
+		s.DestClientMu.Unlock()
 
-			s.DestClientMu.RLock()
-			if s.DestClient.State == consts.Offline {
-				log.Logger.Info("rover is offline")
-			}
-			s.DestClientMu.RUnlock()
-		} else if recvData.Channel == consts.SDPExchange {
+		s.DestClientMu.RLock()
+		if s.DestClient.State == consts.Offline {
+			log.Logger.Info("rover is offline")
+		}
+		s.DestClientMu.RUnlock()
+
+		if recvData.Channel == consts.SDPExchange {
 			remoteOffer := webrtc.SessionDescription{}
-			utils.Decode(string(recvData.Payload), &remoteOffer)
+			utils.Decode(string(s.DestClient.Payload), &remoteOffer)
 			s.RemoteSDPCh <- remoteOffer
 		} else if recvData.Channel == consts.SDPReq {
 			s.WebrtcSignal <- true

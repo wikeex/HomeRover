@@ -17,6 +17,7 @@ type Client struct {
 	GroupId		uint16
 	State 		State
 	Type 		uint8
+	Payload 	[]byte
 
 	// addr and sendCh will not to bytes
 	Addr		*net.Addr
@@ -39,6 +40,8 @@ func (c *Client) ToBytes() ([]byte, error) {
 
 	buffer.Write([]byte{c.Type})
 
+	buffer.Write(c.Payload)
+
 	return buffer.Bytes(), nil
 }
 
@@ -52,6 +55,8 @@ func (c *Client) FromBytes(b []byte) error {
 	c.State = State(b[4])
 
 	c.Type = b[5]
+
+	c.Payload = b[6:]
 
 	return nil
 }
