@@ -26,12 +26,10 @@ type Client struct {
 func (c *Client) ToBytes() ([]byte, error) {
 	buffer := bytes.Buffer{}
 
-	var (
-		idBytes 			[]byte
-		groupIdBytes 		[]byte
-	)
-
+	idBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(idBytes, c.Id)
+
+	groupIdBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(groupIdBytes, c.GroupId)
 
 	buffer.Write(idBytes)

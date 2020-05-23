@@ -85,16 +85,21 @@ func (s *Service) handleClient(conn net.Conn)  {
 		destClient		*client.Client
 		groupId			uint16
 		onceTask		sync.Once
+		length 			int
 	)
 
 	for {
-		_, err = conn.Read(recvBytes)
+		length, err = conn.Read(recvBytes)
 		if err != nil {
-			log.Logger.Error(err)
+			log.Logger.WithFields(logrus.Fields{
+				"error": err,
+			}).Error("read tcp conn error")
 		}
-		err = recvData.FromBytes(recvBytes)
+		err = recvData.FromBytes(recvBytes[:length])
 		if err != nil {
-			log.Logger.Error(err)
+			log.Logger.WithFields(logrus.Fields{
+				"error": err,
+			}).Error("deserialization data error")
 		}
 
 		log.Logger.WithFields(logrus.Fields{
@@ -111,7 +116,7 @@ func (s *Service) handleClient(conn net.Conn)  {
 		if recvData.Type == consts.Controller {
 			log.Logger.WithFields(logrus.Fields{
 				"client": sourceClient,
-				"addr": addr.IP.String(),
+				"addr": addr.String(),
 			}).Info("controller heartbeat received")
 			sourceClient = &s.Groups[groupId].Controller
 			destClient = &s.Groups[groupId].Rover
@@ -124,7 +129,8 @@ func (s *Service) handleClient(conn net.Conn)  {
 			destClient = &s.Groups[groupId].Controller
 		}
 
-		*sourceClient.Addr = conn.LocalAddr()
+		localAddr := conn.LocalAddr()
+		sourceClient.Addr = &localAddr
 
 		// get the dest client from s.Groups
 		s.clientMu.Lock()
