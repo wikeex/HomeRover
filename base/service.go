@@ -49,7 +49,7 @@ func (s *Service) InitConn() error {
 	}
 
 	s.RemoteSDPCh = make(chan webrtc.SessionDescription, 1)
-	s.sendCh = make(chan string, 1)
+	s.SendCh = make(chan string, 1)
 	s.WebrtcSignal = make(chan bool, 1)
 
 	log.Logger.WithFields(logrus.Fields{
@@ -72,7 +72,7 @@ func (s *Service) Send() {
 			Body: struct {
 				Message string `json:"message"`
 				ToUser  string `json:"to_user"`
-			}{Message: <-s.sendCh, ToUser: strconv.Itoa(2)},
+			}{Message: <-s.SendCh, ToUser: strconv.Itoa(2)},
 		}, tcpx.JsonMarshaller{})
 		if err != nil {
 			panic(err)
