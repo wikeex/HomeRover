@@ -6,6 +6,7 @@ import (
 	gst "HomeRover/gst/gstreamer-src"
 	"HomeRover/log"
 	"HomeRover/models/config"
+	"HomeRover/utils"
 	"flag"
 	"github.com/pion/webrtc/v2"
 	"math/rand"
@@ -128,7 +129,7 @@ func (s *Service) webrtc()  {
 		panic(err)
 	}
 
-	s.LocalSDPCh <- offer
+	s.SendCh <- utils.Encode(offer)
 	timeout := make(chan bool, 1)
 
 	go func() {
@@ -137,18 +138,7 @@ func (s *Service) webrtc()  {
 		}
 	}()
 
-	var answer webrtc.SessionDescription
-	// wait for remote sdp
-	SDPLoop:
-	for {
-		select {
-		case answer = <- s.RemoteSDPCh:
-			// When received answer from remote, end the loop
-			break SDPLoop
-		case <- timeout:
-			s.LocalSDPCh <- offer
-		}
-	}
+	var answer = <- s.RemoteSDPCh
 
 	// Set the remote SessionDescription
 	err = peerConnection.SetRemoteDescription(answer)
@@ -175,7 +165,7 @@ func (s *Service) Run()  {
 		log.Logger.Error(err)
 	}
 
-	go s.ServerSend()
+	go s.Send()
 	go s.ServerRecv()
 
 	go s.webrtc()

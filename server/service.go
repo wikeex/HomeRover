@@ -1,17 +1,17 @@
 package server
 
 import (
-	"HomeRover/consts"
 	"HomeRover/log"
 	"HomeRover/models/client"
 	"HomeRover/models/config"
-	"HomeRover/models/data"
 	"HomeRover/models/server"
 	"fmt"
 	mapset "github.com/deckarep/golang-set"
+	"github.com/fwhezfwhez/errorx"
+	"github.com/fwhezfwhez/tcpx"
 	"github.com/sirupsen/logrus"
-	"net"
 	"sync"
+	"time"
 )
 
 func NewService(conf *config.ServerConfig) (*Service, error) {
@@ -27,11 +27,10 @@ type Service struct {
 	confMu				sync.RWMutex
 
 	Groups				map[uint16]*server.Group
-	TransMu				sync.RWMutex
 	clientMu			sync.RWMutex
 
-	serviceAddr			*net.TCPAddr
-	serviceListener 	*net.TCPListener
+	addr 				string
+	service 			*tcpx.TcpX
 }
 
 func (s *Service) init() error {
@@ -44,165 +43,78 @@ func (s *Service) init() error {
 		Controller: client.Client{Id: 2, SendCh: make(chan []byte, 1)},
 	}
 
-	var err error
+	s.addr = fmt.Sprintf("0.0.0.0:%d", s.conf.ServicePort)
+	s.service = tcpx.NewTcpX(tcpx.JsonMarshaller{})
+	s.service.HeartBeatModeDetail(true, 3*time.Second, false, tcpx.DEFAULT_HEARTBEAT_MESSAGEID)
+	s.service.WithBuiltInPool(true)
 
-	s.clientMu.Lock()
-	s.confMu.RLock()
-	s.serviceAddr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("0.0.0.0:%d", s.conf.ServicePort))
-	if err != nil {
-		return err
-	}
-	s.serviceListener, err = net.ListenTCP("tcp", s.serviceAddr)
-	if err != nil {
-		return err
-	}
-	s.confMu.RUnlock()
-	s.clientMu.Unlock()
+	s.service.AddHandler(1, s.online)
+	s.service.AddHandler(3, s.offline)
+	s.service.AddHandler(5, s.send)
 
 	return nil
 }
 
-func (s *Service)listenClients()  {
-
-	log.Logger.Info("listen client task starting...")
-	for {
-		conn, err := s.serviceListener.Accept()
-		if err != nil {
-			log.Logger.Error(err)
-			continue
-		}
-		go s.handleClient(conn)
+func (s *Service) online(c *tcpx.Context) {
+	type Login struct {
+		Username string `json:"username"`
+	}
+	var login Login
+	if _, e := c.Bind(&login); e != nil {
+		log.Logger.WithFields(logrus.Fields{
+			"error": errorx.Wrap(e).Error(),
+		}).Error("bind online function error")
+		return
+	}
+	err := c.Online(login.Username)
+	if err != nil {
+		log.Logger.WithFields(logrus.Fields{
+			"error": errorx.Wrap(err).Error(),
+		}).Error("set client online error")
 	}
 }
 
-func (s *Service) handleClient(conn net.Conn)  {
-	recvBytes := make([]byte, 20480)
-	recvData := data.Data{}
-	var (
-		err        		error
-		addr       		*net.TCPAddr
-
-		// tempClient use to resolve groupId
-		tempClient		client.Client
-		sourceClient	*client.Client
-		destClient		*client.Client
-		groupId			uint16
-		onceTask		sync.Once
-		length 			int
-	)
-
-	for {
-		length, err = conn.Read(recvBytes)
-		if err != nil || length == 0 {
-			log.Logger.WithFields(logrus.Fields{
-				"error": err,
-				"data length": length,
-			}).Error("receive data error")
-			continue
-		}
-		err = recvData.FromBytes(recvBytes[:length])
-		if err != nil {
-			log.Logger.WithFields(logrus.Fields{
-				"error": err,
-			}).Error("deserialization data error")
-		}
-
-		err = tempClient.FromBytes(recvData.Payload)
-		if err != nil {
-			log.Logger.Error(err)
-		}
-		groupId = tempClient.GroupId
-
+func (s *Service) offline(c *tcpx.Context) {
+	err :=c.Offline()
+	if err != nil {
 		log.Logger.WithFields(logrus.Fields{
-			"received bytes": recvBytes[:25],
-			"bytes length": len(recvBytes),
-		}).Info("received bytes from client")
+			"error": errorx.Wrap(err).Error(),
+		}).Error("set client offline error")
+	}
+}
 
-		if recvData.Type == consts.Controller {
-			log.Logger.WithFields(logrus.Fields{
-				"client": sourceClient,
-				"addr": addr.String(),
-			}).Info("controller heartbeat received")
-			sourceClient = &s.Groups[groupId].Controller
-			destClient = &s.Groups[groupId].Rover
-		} else if recvData.Type == consts.Rover {
-			log.Logger.WithFields(logrus.Fields{
-				"client": sourceClient,
-				"addr": addr.String(),
-			}).Info("rover heartbeat received")
-			sourceClient = &s.Groups[groupId].Rover
-			destClient = &s.Groups[groupId].Controller
-		} else {
-			continue
-		}
-
-		localAddr := conn.LocalAddr()
-
-		s.clientMu.Lock()
-		sourceClient.Addr = &localAddr
-
-		// get the dest client from s.Groups
-		sourceClient.State = consts.Online
-		s.clientMu.Unlock()
-
-		// create a goroutine to send sdp info
-		onceTask.Do(func() {
-			go func() {
-				var (
-					err 	error
-				)
-
-				s.clientMu.RLock()
-				dataCh := sourceClient.SendCh
-				s.clientMu.RUnlock()
-
-				for {
-					_, err = conn.Write(<- dataCh)
-					if err != nil {
-						log.Logger.WithFields(logrus.Fields{
-							"error": err,
-						}).Error("send sdp package error")
-					}
-				}
-			}()
+func (s *Service) send(c *tcpx.Context) {
+	type RequestFrom struct {
+		Message string `json:"message"`
+		ToUser  string `json:"to_user"`
+	}
+	type ResponseTo struct {
+		Message  string `json:"message"`
+		FromUser string `json:"from_user"`
+	}
+	var req RequestFrom
+	if _, e := c.Bind(&req); e != nil {
+		panic(e)
+	}
+	anotherCtx := c.GetPoolRef().GetClientPool(req.ToUser)
+	if anotherCtx.IsOnline() {
+		err := c.SendToUsername(req.ToUser, 6, ResponseTo{
+			Message:  req.Message,
+			FromUser: req.ToUser,
 		})
-
-		log.Logger.WithFields(logrus.Fields{
-			"dest client": destClient,
-		}).Debug("generating response")
-
-		// send controller addr back
-		recvData.Payload, err = destClient.ToBytes()
 		if err != nil {
-			log.Logger.Error(err)
+			log.Logger.WithFields(logrus.Fields{
+				"error": errorx.Wrap(err).Error(),
+			}).Error("forward message to dest client error")
 		}
-
-		if recvData.Channel == consts.Service {
-			recvData.Type = consts.Server
-			recvData.Channel = consts.Service
-
+	} else {
+		err := c.JSON(200, ResponseTo{
+			Message: fmt.Sprintf("'%s' is offline", req.ToUser),
+		})
+		if err != nil {
 			log.Logger.WithFields(logrus.Fields{
-				"data": recvData,
-				"addr": addr.String(),
-			}).Info("send heartbeat response to client")
-
-			_, err = conn.Write(recvData.ToBytes())
-			if err != nil {
-				log.Logger.Error(err)
-			}
-		} else if recvData.Channel == consts.SDPReq ||
-			recvData.Channel == consts.SDPExchange ||
-			recvData.Channel == consts.SDPEnd {
-
-			log.Logger.WithFields(logrus.Fields{
-				"data": recvData,
-			}).Info("forward sdp package to destination client")
-
-			s.clientMu.Lock()
-			if destClient.Addr != nil {
-				destClient.SendCh <- recvBytes
-			}
-			s.clientMu.Unlock()
+				"error": errorx.Wrap(err).Error(),
+			}).Error("response to client error")
 		}
 	}
 }
@@ -213,7 +125,15 @@ func (s *Service) Run() {
 	if err != nil {
 		log.Logger.Error(err)
 	}
-	
-	go s.listenClients()
+
+	go func() {
+		err := s.service.ListenAndServe("tcp", s.addr)
+		if err != nil {
+			log.Logger.WithFields(logrus.Fields{
+				"error": err,
+			}).Error("start tcpx server error")
+		}
+	}()
+
 	select {}
 }

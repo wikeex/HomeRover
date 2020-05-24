@@ -6,6 +6,7 @@ import (
 	gst "HomeRover/gst/gstreamer-sink"
 	"HomeRover/log"
 	"HomeRover/models/config"
+	"HomeRover/utils"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v2"
 	"runtime"
@@ -139,7 +140,7 @@ func (s *Service) webrtc()  {
 		panic(err)
 	}
 
-	s.LocalSDPCh <- answer
+	s.SendCh <- utils.Encode(answer)
 
 	if len(s.WebrtcSignal) > 0 {
 		<-s.WebrtcSignal
@@ -160,7 +161,7 @@ func (s *Service) Run() {
 		log.Logger.Error(err)
 	}
 
-	go s.ServerSend()
+	go s.Send()
 	go s.ServerRecv()
 
 	go s.webrtc()

@@ -1,18 +1,19 @@
 package base
 
 import (
-	"HomeRover/consts"
 	"HomeRover/log"
 	"HomeRover/models/client"
 	"HomeRover/models/config"
-	"HomeRover/models/data"
 	"HomeRover/utils"
+	"encoding/json"
+	"fmt"
+	"github.com/fwhezfwhez/tcpx"
 	"github.com/pion/webrtc/v2"
 	"github.com/sirupsen/logrus"
 	"net"
+	"os"
 	"strconv"
 	"sync"
-	"time"
 )
 
 type Service struct {
@@ -27,7 +28,7 @@ type Service struct {
 	DestClientMu	sync.RWMutex
 
 	RemoteSDPCh		chan webrtc.SessionDescription
-	LocalSDPCh		chan webrtc.SessionDescription
+	SendCh			chan string
 	WebrtcSignal	chan bool
 }
 
@@ -48,7 +49,7 @@ func (s *Service) InitConn() error {
 	}
 
 	s.RemoteSDPCh = make(chan webrtc.SessionDescription, 1)
-	s.LocalSDPCh = make(chan webrtc.SessionDescription, 1)
+	s.sendCh = make(chan string, 1)
 	s.WebrtcSignal = make(chan bool, 1)
 
 	log.Logger.WithFields(logrus.Fields{
@@ -58,98 +59,99 @@ func (s *Service) InitConn() error {
 	return nil
 }
 
-func (s *Service) ServerSend()  {
-	s.LocalClientMu.RLock()
-	clientBytes, err := s.LocalClient.ToBytes()
-	if err != nil {
-		log.Logger.WithFields(logrus.Fields{
-			"local client": s.LocalClient,
-		}).Error(err)
-	}
-	sendObject := data.Data{
-		Type:     s.LocalClient.Type,
-		Channel:  consts.Service,
-		OrderNum: 0,
-		Payload:  clientBytes,
-	}
-	s.LocalClientMu.RUnlock()
+func (s *Service) Send() {
+	var  (
+		buf 	[]byte
+		err		error
+	)
 
-	sendData := sendObject.ToBytes()
-
-	log.Logger.Info("starting server send task")
-	for range time.Tick(time.Second){
-		log.Logger.WithFields(logrus.Fields{
-			"order num": sendObject.OrderNum,
-			"send bytes": sendData[:25],
-			"data length": len(sendData),
-		}).Debug("send heartbeat to server")
-
-		_, err = s.ServerConn.Write(sendData)
+	for {
+		buf, err = tcpx.PackWithMarshaller(tcpx.Message{
+			MessageID: 5,
+			Header:    nil,
+			Body: struct {
+				Message string `json:"message"`
+				ToUser  string `json:"to_user"`
+			}{Message: <-s.sendCh, ToUser: strconv.Itoa(2)},
+		}, tcpx.JsonMarshaller{})
 		if err != nil {
-			log.Logger.Error(err)
+			panic(err)
 		}
-
-		select {
-		case localOffer := <- s.LocalSDPCh:
-			s.LocalClient.Payload = []byte(utils.Encode(localOffer))
-			sendObject.Payload, err = s.LocalClient.ToBytes()
-			if err != nil {
-				log.Logger.WithFields(logrus.Fields{
-					"error": err,
-				}).Error("serialize local client error")
-			}
-			sendObject.Channel = consts.SDPExchange
-		default:
-			sendObject.OrderNum++
-			sendObject.Payload = []byte{}
+		_, err = s.ServerConn.Write(buf)
+		if err != nil {
+			log.Logger.WithFields(logrus.Fields{
+				"error": err,
+			}).Error("send data error")
 		}
-		sendData = sendObject.ToBytes()
 	}
 }
 
 func (s *Service) ServerRecv()  {
-	recvBytes := make([]byte, 20480)
-	recvData := data.Data{}
-
-	log.Logger.Info("starting server receive task")
+	var buf = make([]byte, 20480)
+	var e error
 	for {
-		length, err := s.ServerConn.Read(recvBytes)
-		if err != nil || length == 0 {
+		buf, e = tcpx.FirstBlockOf(s.ServerConn)
+		if e != nil {
+			fmt.Println(e.Error())
+			os.Exit(0)
+		}
+		bf, _ := tcpx.BodyBytesOf(buf)
+		messageID, e := tcpx.MessageIDOf(buf)
+
+		switch messageID {
+		case 400, 200, 500:
+			type ResponseTo struct {
+				Message string `json:"message"`
+			}
+			var rs ResponseTo
+			e = json.Unmarshal(bf, &rs)
+			if e != nil {
+				panic(e)
+			}
+
 			log.Logger.WithFields(logrus.Fields{
-				"error": err,
-				"data length": length,
-			}).Error("receive data error")
-			continue
-		}
-		err = recvData.FromBytes(recvBytes[:length])
-		if err != nil {
-			log.Logger.Error(err)
-		}
+				"200 server Message": rs.Message,
+			}).Info("got server message")
 
-		log.Logger.WithFields(logrus.Fields{
-			"response bytes": recvBytes,
-			"response data": recvData,
-		}).Info("received heartbeat response")
+		case 6:
+			type ResponseTo struct {
+				Message  string `json:"message"`
+				FromUser string `json:"from_user"`
+			}
+			var rs ResponseTo
+			e = json.Unmarshal(bf, &rs)
+			if e != nil {
+				panic(e)
+			}
 
-		s.DestClientMu.Lock()
-		err = s.DestClient.FromBytes(recvData.Payload)
-		if err != nil {
-			log.Logger.Error(err)
-		}
-		s.DestClientMu.Unlock()
+			log.Logger.WithFields(logrus.Fields{
+				"remote Message": rs.Message,
+			}).Info("got remote message")
 
-		s.DestClientMu.RLock()
-		if s.DestClient.State == consts.Offline {
-			log.Logger.Info("rover is offline")
-		}
-		s.DestClientMu.RUnlock()
-
-		if recvData.Channel == consts.SDPExchange {
 			remoteOffer := webrtc.SessionDescription{}
-			utils.Decode(string(s.DestClient.Payload), &remoteOffer)
+			utils.Decode(rs.Message, &remoteOffer)
+
 			s.RemoteSDPCh <- remoteOffer
-		} else if recvData.Channel == consts.SDPReq {
-			s.WebrtcSignal <- true
 		}
 	}
+}
+
+func (s *Service) signIn() {
+	onlineBuf, e := tcpx.PackWithMarshaller(tcpx.Message{
+		MessageID: 1,
+		Header:    nil,
+		Body:      struct{ Username string `json:"username"` }{strconv.Itoa(s.Conf.Id)},
+	}, tcpx.JsonMarshaller{})
+	if e != nil {
+		panic(e)
+	}
+	_, err := s.ServerConn.Write(onlineBuf)
+	if err != nil {
+		log.Logger.WithFields(logrus.Fields{
+			"error": err,
+		}).Error("sign in server error")
+	}
+	log.Logger.WithFields(logrus.Fields{
+		"data": onlineBuf,
+	}).Info("sign in success")
 }
