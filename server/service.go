@@ -113,6 +113,7 @@ func (s *Service) handleClient(conn net.Conn)  {
 
 		log.Logger.WithFields(logrus.Fields{
 			"received bytes": recvBytes[:25],
+			"bytes length": len(recvBytes),
 		}).Info("received bytes from client")
 
 		if recvData.Type == consts.Controller {

@@ -81,6 +81,7 @@ func (s *Service) ServerSend()  {
 		log.Logger.WithFields(logrus.Fields{
 			"order num": sendObject.OrderNum,
 			"send bytes": sendData[:25],
+			"data length": len(sendData),
 		}).Debug("send heartbeat to server")
 
 		_, err = s.ServerConn.Write(sendData)
