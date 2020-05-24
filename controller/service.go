@@ -140,6 +140,7 @@ func (s *Service) webrtc()  {
 		panic(err)
 	}
 
+	log.Logger.Debug("send sdp to send channel")
 	s.SendCh <- utils.Encode(answer)
 
 	if len(s.WebrtcSignal) > 0 {

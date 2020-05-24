@@ -77,6 +77,7 @@ func (s *Service) Send() {
 		if err != nil {
 			panic(err)
 		}
+		log.Logger.Debug("get data from send channel and send")
 		_, err = s.ServerConn.Write(buf)
 		if err != nil {
 			log.Logger.WithFields(logrus.Fields{
