@@ -76,7 +76,7 @@ func (s *Service)listenClients()  {
 }
 
 func (s *Service) handleClient(conn net.Conn)  {
-	recvBytes := make([]byte, 0, 20480)
+	recvBytes := make([]byte, 20480)
 	recvData := data.Data{}
 	var (
 		err        		error
@@ -93,7 +93,7 @@ func (s *Service) handleClient(conn net.Conn)  {
 
 	for {
 		length, err = conn.Read(recvBytes)
-		if err != nil {
+		if err != nil || length == 0 {
 			log.Logger.WithFields(logrus.Fields{
 				"error": err,
 				"data length": length,
