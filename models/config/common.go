@@ -12,6 +12,7 @@ type CommonConfig struct {
 	StunPort		int			`json:"stunPort"`
 	PackageLen		int			`json:"packageLen"`
 	Id				int			`json:"id"`
+	RemoteId 		int   		`json:"remoteId"`
 	GroupId			int			`json:"groupId"`
 }
 
@@ -82,7 +83,17 @@ func CommonConfigInit(filePath string) (roverConfig CommonConfig, err error) {
 		}
 		roverConfig.Id = value
 	} else {
-		panic("'ControllerId' variable missing from 'common' section")
+		panic("'id' variable missing from 'common' section")
+	}
+
+	if tempString, ok = conf.Get("common", "remoteId"); ok {
+		value, err = strconv.Atoi(tempString)
+		if err != nil {
+			return
+		}
+		roverConfig.RemoteId = value
+	} else {
+		panic("'remoteId' variable missing from 'common' section")
 	}
 
 	if tempString, ok = conf.Get("common", "groupId"); ok {

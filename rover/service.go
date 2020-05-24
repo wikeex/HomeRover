@@ -9,11 +9,11 @@ import (
 	"HomeRover/utils"
 	"flag"
 	"github.com/pion/webrtc/v2"
+	"github.com/sirupsen/logrus"
 	"math/rand"
 	"net"
 	"runtime"
 	"strconv"
-	"time"
 )
 
 func NewService(conf *config.CommonConfig, roverConf *config.RoverConfig) (service *Service, err error) {
@@ -130,15 +130,11 @@ func (s *Service) webrtc()  {
 	}
 
 	s.SendCh <- utils.Encode(offer)
-	timeout := make(chan bool, 1)
-
-	go func() {
-		for range time.Tick(time.Duration(5e9)) {
-			timeout <- true
-		}
-	}()
 
 	var answer = <- s.RemoteSDPCh
+	log.Logger.WithFields(logrus.Fields{
+		"remote sdp": utils.Encode(answer),
+	}).Debug("got remote sdp from remote sdp channel")
 
 	// Set the remote SessionDescription
 	err = peerConnection.SetRemoteDescription(answer)

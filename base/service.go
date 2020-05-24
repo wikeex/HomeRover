@@ -72,18 +72,20 @@ func (s *Service) Send() {
 			Body: struct {
 				Message string `json:"message"`
 				ToUser  string `json:"to_user"`
-			}{Message: <-s.SendCh, ToUser: strconv.Itoa(2)},
+			}{Message: <-s.SendCh, ToUser: strconv.Itoa(s.Conf.RemoteId)},
 		}, tcpx.JsonMarshaller{})
 		if err != nil {
 			panic(err)
 		}
-		log.Logger.Debug("get data from send channel and send")
+
 		_, err = s.ServerConn.Write(buf)
 		if err != nil {
 			log.Logger.WithFields(logrus.Fields{
 				"error": err,
 			}).Error("send data error")
 		}
+
+		log.Logger.Debug("get data from send channel and sent succeed")
 	}
 }
 
