@@ -136,7 +136,7 @@ func (s *Service) ServerRecv()  {
 	}
 }
 
-func (s *Service) signIn() {
+func (s *Service) SignIn() {
 	onlineBuf, e := tcpx.PackWithMarshaller(tcpx.Message{
 		MessageID: 1,
 		Header:    nil,

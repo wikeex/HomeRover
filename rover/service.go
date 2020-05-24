@@ -168,6 +168,7 @@ func (s *Service) Run()  {
 	go s.Send()
 	go s.ServerRecv()
 
+	go s.SignIn()
 	go s.webrtc()
 	go s.cmdService()
 
