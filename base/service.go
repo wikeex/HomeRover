@@ -108,7 +108,7 @@ func (s *Service) ServerSend()  {
 }
 
 func (s *Service) ServerRecv()  {
-	recvBytes := make([]byte, s.Conf.PackageLen)
+	recvBytes := make([]byte, 0, 20480)
 	recvData := data.Data{}
 
 	log.Logger.Info("starting server receive task")

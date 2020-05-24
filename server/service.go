@@ -76,7 +76,7 @@ func (s *Service)listenClients()  {
 }
 
 func (s *Service) handleClient(conn net.Conn)  {
-	recvBytes := make([]byte, s.conf.PackageLen)
+	recvBytes := make([]byte, 0, 20480)
 	recvData := data.Data{}
 	var (
 		err        		error
