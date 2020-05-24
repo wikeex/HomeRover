@@ -13,6 +13,9 @@ const (
 	Video
 	Audio
 	Service
+	SDPReq
+	SDPExchange
+	SDPEnd
 )
 
 // transmission mode
@@ -25,11 +28,4 @@ const (
 const (
 	Online = iota
 	Offline
-)
-
-// sdp info type
-const (
-	SDPReq = iota
-	SDPExchange
-	SDPEnd
 )
