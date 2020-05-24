@@ -114,8 +114,12 @@ func (s *Service) ServerRecv()  {
 	log.Logger.Info("starting server receive task")
 	for {
 		length, err := s.ServerConn.Read(recvBytes)
-		if err != nil {
-			log.Logger.Error(err)
+		if err != nil || length == 0 {
+			log.Logger.WithFields(logrus.Fields{
+				"error": err,
+				"data length": length,
+			}).Error("receive data error")
+			continue
 		}
 		err = recvData.FromBytes(recvBytes[:length])
 		if err != nil {

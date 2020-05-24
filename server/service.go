@@ -96,7 +96,9 @@ func (s *Service) handleClient(conn net.Conn)  {
 		if err != nil {
 			log.Logger.WithFields(logrus.Fields{
 				"error": err,
-			}).Error("read tcp conn error")
+				"data length": length,
+			}).Error("receive data error")
+			continue
 		}
 		err = recvData.FromBytes(recvBytes[:length])
 		if err != nil {
