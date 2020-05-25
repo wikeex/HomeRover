@@ -6,6 +6,7 @@ import (
 	"HomeRover/log"
 	"HomeRover/models/config"
 	"HomeRover/utils"
+	"bytes"
 	"flag"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v2"
@@ -177,6 +178,8 @@ func (s *Service) webrtc()  {
 
 func (s *Service) startGstream()  {
 	var err		error
+	var stdout 	bytes.Buffer
+	var stderr 	bytes.Buffer
 
 	// start gstreamer v4l2 video
 	cmd := exec.Command( //nolint
@@ -190,7 +193,12 @@ func (s *Service) startGstream()  {
 		"!", "rtph264pay config-interval=10 pt=96",
 		"!", "udpsink host=127.0.0.1 port=5004 -e",
 	)
-
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	log.Logger.WithFields(logrus.Fields{
+		"stdout": cmd.Stdout,
+		"stderr": cmd.Stderr,
+	}).Info("execute gst command")
 	if err = cmd.Run(); err != nil {
 		panic(err)
 	}
