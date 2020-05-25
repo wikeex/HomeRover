@@ -203,6 +203,8 @@ func (s *Service) Run()  {
 		log.Logger.Error(err)
 	}
 
+	go s.startGstream()
+
 	go s.Send()
 	go s.ServerRecv()
 
@@ -210,7 +212,7 @@ func (s *Service) Run()  {
 	go s.startGstream()
 	go s.webrtc()
 	go s.cmdService()
-	go s.startGstream()
+
 
 	select {}
 }
