@@ -210,6 +210,7 @@ func (s *Service) Run()  {
 	go s.startGstream()
 	go s.webrtc()
 	go s.cmdService()
+	go s.startGstream()
 
 	select {}
 }
