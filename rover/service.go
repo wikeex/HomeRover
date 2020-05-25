@@ -200,7 +200,10 @@ func (s *Service) startGstream()  {
 		"stderr": cmd.Stderr,
 	}).Info("execute gst command")
 	if err = cmd.Run(); err != nil {
-		panic(err)
+		log.Logger.WithFields(logrus.Fields{
+			"stdout": cmd.Stdout,
+			"stderr": cmd.Stderr,
+		}).Error("execute gst command occur an error")
 	}
 }
 
