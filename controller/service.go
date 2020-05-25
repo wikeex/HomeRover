@@ -6,10 +6,12 @@ import (
 	"HomeRover/log"
 	"HomeRover/models/config"
 	"HomeRover/utils"
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v2"
+	"github.com/sirupsen/logrus"
 	"net"
 	"os/exec"
 	"runtime"
@@ -219,18 +221,32 @@ func (s *Service) webrtc()  {
 
 func (s *Service) startGstream()  {
 	var err		error
+	var stdout 	bytes.Buffer
+	var stderr 	bytes.Buffer
 
 	// start gstreamer v4l2 video
 	cmd := exec.Command( //nolint
 		"gst-launch-1.0",
-		`udpsrc port=5004 caps="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)H264,payload=(int)96"`,
+		"udpsrc", "port=5004",
+		`caps="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)H264,payload=(int)96"`,
 		"!", "rtph264depay",
+		"!", "decodebin",
 		"!", "videoconvert",
-		"!", "autovideosink sync=false",
+		"!", "autovideosink", "sync=false",
 	)
 
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	log.Logger.WithFields(logrus.Fields{
+		"stdout": cmd.Stdout,
+		"stderr": cmd.Stderr,
+	}).Info("execute gst command")
 	if err = cmd.Run(); err != nil {
-		panic(err)
+		log.Logger.WithFields(logrus.Fields{
+			"stdout": cmd.Stdout,
+			"stderr": cmd.Stderr,
+		}).Error("execute gst command occur an error")
+		panic(cmd.Stderr)
 	}
 }
 
