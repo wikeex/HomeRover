@@ -82,10 +82,10 @@ func (s *Service) webrtc()  {
 
 
 	// Create a datachannel with label 'data'
-	//dataChannel, err := peerConnection.CreateDataChannel("cmdData", nil)
-	//if err != nil {
-	//	panic(err)
-	//}
+	dataChannel, err := peerConnection.CreateDataChannel("cmdData", nil)
+	if err != nil {
+		panic(err)
+	}
 
 	// Set the handler for ICE connection state
 	// This will notify you when the peer has connected/disconnected
@@ -104,7 +104,7 @@ func (s *Service) webrtc()  {
 	}
 
 	// Create a video track
-	videoTrack, err := peerConnection.NewTrack(webrtc.DefaultPayloadTypeVP9, rand.Uint32(), "video", "pion2")
+	videoTrack, err := peerConnection.NewTrack(webrtc.DefaultPayloadTypeH264, rand.Uint32(), "video", "pion2")
 	if err != nil {
 		panic(err)
 	}
@@ -114,9 +114,9 @@ func (s *Service) webrtc()  {
 	}
 
 	// Register text message handling
-	//dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-	//	s.joystickDataCh <- msg.Data
-	//})
+	dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+		s.joystickDataCh <- msg.Data
+	})
 
 	// create offer from peer
 	offer, err := peerConnection.CreateOffer(nil)
@@ -144,7 +144,7 @@ func (s *Service) webrtc()  {
 
 	// Start pushing buffers on these tracks
 	gst.CreatePipeline(webrtc.Opus, []*webrtc.Track{audioTrack}, *audioSrc).Start()
-	gst.CreatePipeline(webrtc.VP9, []*webrtc.Track{videoTrack}, *videoSrc).Start()
+	gst.CreatePipeline(webrtc.H264, []*webrtc.Track{videoTrack}, *videoSrc).Start()
 
 	// Block forever
 	select {

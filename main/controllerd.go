@@ -5,7 +5,12 @@ import (
 	"HomeRover/joystick"
 	"HomeRover/log"
 	"HomeRover/models/config"
+	"runtime"
 )
+
+func init()  {
+	runtime.LockOSThread()
+}
 
 func main() {
 	log.Logger.Info("reading common config...")

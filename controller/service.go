@@ -100,27 +100,27 @@ func (s *Service) webrtc()  {
 	})
 
 	// Register data channel creation handling
-	//peerConnection.OnDataChannel(func(d *webrtc.DataChannel) {
-	//	log.Logger.Info("New DataChannel %s %d\n", d.Label(), d.ID())
-	//
-	//	// Register channel opening handling
-	//	d.OnOpen(func() {
-	//		log.Logger.Info("Data channel '%s'-'%d' open. Joystick data will now be sent to any connected DataChannels\n", d.Label(), d.ID())
-	//
-	//		for {
-	//			// Send the message as bytes
-	//			sendErr := d.Send(<- s.joystickData)
-	//			if sendErr != nil {
-	//				panic(sendErr)
-	//			}
-	//		}
-	//	})
-	//
-	//	// Register text message handling
-	//	d.OnMessage(func(msg webrtc.DataChannelMessage) {
-	//		log.Logger.Info("Message from DataChannel '%s': '%s'\n", d.Label(), string(msg.Data))
-	//	})
-	//})
+	peerConnection.OnDataChannel(func(d *webrtc.DataChannel) {
+		log.Logger.Info("New DataChannel %s %d\n", d.Label(), d.ID())
+
+		// Register channel opening handling
+		d.OnOpen(func() {
+			log.Logger.Info("Data channel '%s'-'%d' open. Joystick data will now be sent to any connected DataChannels\n", d.Label(), d.ID())
+
+			for {
+				// Send the message as bytes
+				sendErr := d.Send(<- s.joystickData)
+				if sendErr != nil {
+					panic(sendErr)
+				}
+			}
+		})
+
+		// Register text message handling
+		d.OnMessage(func(msg webrtc.DataChannelMessage) {
+			log.Logger.Info("Message from DataChannel '%s': '%s'\n", d.Label(), string(msg.Data))
+		})
+	})
 
 	// Set the remote SessionDescription
 	err = peerConnection.SetRemoteDescription(<- s.RemoteSDPCh)
@@ -167,5 +167,7 @@ func (s *Service) Run() {
 
 	go s.SignIn()
 	go s.webrtc()
+
+	gst.StartMainLoop()
 	select {}
 }
