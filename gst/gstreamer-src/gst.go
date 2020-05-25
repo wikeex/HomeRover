@@ -40,7 +40,7 @@ const (
 
 // CreatePipeline creates a GStreamer Pipeline
 func CreatePipeline(codecName string, tracks []*webrtc.Track, pipelineSrc string) *Pipeline {
-	pipelineStr := "appsink name=appsink"
+	pipelineStr := "appsink name=appsink sync=false"
 	var clockRate float32
 
 	switch codecName {
