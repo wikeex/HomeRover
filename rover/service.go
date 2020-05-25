@@ -61,7 +61,7 @@ func (s *Service) cmdService()  {
 func (s *Service) webrtc()  {
 	log.Logger.Info("webrtc task starting...")
 
-	audioSrc := flag.String("audio-src", "audiotestsrc", "GStreamer audio src")
+	//audioSrc := flag.String("audio-src", "audiotestsrc", "GStreamer audio src")
 	videoSrc := flag.String("video-src", "v4l2src ! 'video/x-raw,width=1280, height=960, framerate=30/1' ! nvvidconv ", "GStreamer video src")
 	flag.Parse()
 
@@ -94,14 +94,14 @@ func (s *Service) webrtc()  {
 	})
 
 	// Create a audio track
-	audioTrack, err := peerConnection.NewTrack(webrtc.DefaultPayloadTypeOpus, rand.Uint32(), "audio", "pion1")
-	if err != nil {
-		panic(err)
-	}
-	_, err = peerConnection.AddTrack(audioTrack)
-	if err != nil {
-		panic(err)
-	}
+	//audioTrack, err := peerConnection.NewTrack(webrtc.DefaultPayloadTypeOpus, rand.Uint32(), "audio", "pion1")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//_, err = peerConnection.AddTrack(audioTrack)
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	// Create a video track
 	videoTrack, err := peerConnection.NewTrack(webrtc.DefaultPayloadTypeH264, rand.Uint32(), "video", "pion2")
@@ -143,7 +143,7 @@ func (s *Service) webrtc()  {
 	}
 
 	// Start pushing buffers on these tracks
-	gst.CreatePipeline(webrtc.Opus, []*webrtc.Track{audioTrack}, *audioSrc).Start()
+	//gst.CreatePipeline(webrtc.Opus, []*webrtc.Track{audioTrack}, *audioSrc).Start()
 	gst.CreatePipeline(webrtc.H264, []*webrtc.Track{videoTrack}, *videoSrc).Start()
 
 	// Block forever
