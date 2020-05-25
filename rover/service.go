@@ -184,7 +184,8 @@ func (s *Service) startGstream()  {
 	// start gstreamer v4l2 video
 	cmd := exec.Command( //nolint
 		"gst-launch-1.0",
-		"-v v4l2src",
+		"-v",
+		"v4l2src",
 		"!", "video/x-raw,width=1280, height=960, framerate=30/1'",
 		"!", "nvvidconv",
 		"!", "'video/x-raw(memory:NVMM),format=NV12'",
