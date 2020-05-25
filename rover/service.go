@@ -3,16 +3,15 @@ package rover
 import (
 	"HomeRover/base"
 	"HomeRover/consts"
-	gst "HomeRover/gst/gstreamer-src"
 	"HomeRover/log"
 	"HomeRover/models/config"
 	"HomeRover/utils"
 	"flag"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v2"
 	"github.com/sirupsen/logrus"
-	"math/rand"
 	"net"
-	"runtime"
+	"os/exec"
 	"strconv"
 )
 
@@ -61,8 +60,6 @@ func (s *Service) cmdService()  {
 func (s *Service) webrtc()  {
 	log.Logger.Info("webrtc task starting...")
 
-	audioSrc := flag.String("audio-src", "audiotestsrc", "GStreamer audio src")
-	videoSrc := flag.String("video-src", "v4l2src ! 'video/x-raw,width=1280, height=960, framerate=30/1' ! nvvidconv ! 'video/x-raw(memory:NVMM),format=NV12' ", "GStreamer video src")
 	flag.Parse()
 
 	// Prepare the configuration
@@ -87,24 +84,41 @@ func (s *Service) webrtc()  {
 		panic(err)
 	}
 
+
+	// Open a UDP Listener for RTP Packets on port 5004
+	listener, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5004})
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err = listener.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	log.Logger.Info("Waiting for RTP Packets, please run GStreamer or ffmpeg now")
+
+	// Listen for a single RTP Packet, we need this to determine the SSRC
+	inboundRTPPacket := make([]byte, 4096) // UDP MTU
+	n, _, err := listener.ReadFromUDP(inboundRTPPacket)
+	if err != nil {
+		panic(err)
+	}
+
+	// Unmarshal the incoming packet
+	packet := &rtp.Packet{}
+	if err = packet.Unmarshal(inboundRTPPacket[:n]); err != nil {
+		panic(err)
+	}
+
 	// Set the handler for ICE connection state
 	// This will notify you when the peer has connected/disconnected
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		log.Logger.Info("Connection State has changed %s \n", connectionState.String())
 	})
 
-	// Create a audio track
-	audioTrack, err := peerConnection.NewTrack(webrtc.DefaultPayloadTypeOpus, rand.Uint32(), "audio", "pion1")
-	if err != nil {
-		panic(err)
-	}
-	_, err = peerConnection.AddTrack(audioTrack)
-	if err != nil {
-		panic(err)
-	}
-
 	// Create a video track
-	videoTrack, err := peerConnection.NewTrack(webrtc.DefaultPayloadTypeH264, rand.Uint32(), "video", "pion2")
+	videoTrack, err := peerConnection.NewTrack(webrtc.DefaultPayloadTypeH264, packet.SSRC, "video", "pion2")
 	if err != nil {
 		panic(err)
 	}
@@ -142,15 +156,43 @@ func (s *Service) webrtc()  {
 		panic(err)
 	}
 
-	// Start pushing buffers on these tracks
-	gst.CreatePipeline(webrtc.Opus, []*webrtc.Track{audioTrack}, *audioSrc).Start()
-	gst.CreatePipeline(webrtc.H264, []*webrtc.Track{videoTrack}, *videoSrc).Start()
+	for {
+		n, _, err := listener.ReadFrom(inboundRTPPacket)
+		if err != nil {
+			log.Logger.Error("error during read: %s", err)
+			panic(err)
+		}
 
-	// Block forever
-	select {
-	case <- s.WebrtcSignal:
-		log.Logger.Info("video send task end")
-		runtime.Goexit()
+		packet := &rtp.Packet{}
+		if err := packet.Unmarshal(inboundRTPPacket[:n]); err != nil {
+			panic(err)
+		}
+		packet.Header.PayloadType = webrtc.DefaultPayloadTypeH264
+
+		if writeErr := videoTrack.WriteRTP(packet); writeErr != nil {
+			panic(writeErr)
+		}
+	}
+}
+
+func (s *Service) startGstream()  {
+	var err		error
+
+	// start gstreamer v4l2 video
+	cmd := exec.Command( //nolint
+		"gst-launch-1.0",
+		"-v v4l2src",
+		"!", "video/x-raw,width=1280, height=960, framerate=30/1'",
+		"!", "nvvidconv",
+		"!", "'video/x-raw(memory:NVMM),format=NV12'",
+		"!", "nvv4l2h264enc bitrate=4000000",
+		"!", "h264parse",
+		"!", "rtph264pay config-interval=10 pt=96",
+		"!", "udpsink host=127.0.0.1 port=5004 -e",
+	)
+
+	if err = cmd.Start(); err != nil {
+		panic(err)
 	}
 }
 
@@ -165,6 +207,7 @@ func (s *Service) Run()  {
 	go s.ServerRecv()
 
 	go s.SignIn()
+	go s.startGstream()
 	go s.webrtc()
 	go s.cmdService()
 
