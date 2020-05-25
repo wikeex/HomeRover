@@ -82,10 +82,10 @@ func (s *Service) webrtc()  {
 
 
 	// Create a datachannel with label 'data'
-	dataChannel, err := peerConnection.CreateDataChannel("cmdData", nil)
-	if err != nil {
-		panic(err)
-	}
+	//dataChannel, err := peerConnection.CreateDataChannel("cmdData", nil)
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	// Set the handler for ICE connection state
 	// This will notify you when the peer has connected/disconnected
@@ -114,9 +114,9 @@ func (s *Service) webrtc()  {
 	}
 
 	// Register text message handling
-	dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-		s.joystickDataCh <- msg.Data
-	})
+	//dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+	//	s.joystickDataCh <- msg.Data
+	//})
 
 	// create offer from peer
 	offer, err := peerConnection.CreateOffer(nil)
