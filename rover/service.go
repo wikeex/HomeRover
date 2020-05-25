@@ -191,7 +191,7 @@ func (s *Service) startGstream()  {
 		"!", "udpsink host=127.0.0.1 port=5004 -e",
 	)
 
-	if err = cmd.Start(); err != nil {
+	if err = cmd.Run(); err != nil {
 		panic(err)
 	}
 }

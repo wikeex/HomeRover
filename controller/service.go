@@ -229,7 +229,7 @@ func (s *Service) startGstream()  {
 		"!", "autovideosink sync=false",
 	)
 
-	if err = cmd.Start(); err != nil {
+	if err = cmd.Run(); err != nil {
 		panic(err)
 	}
 }
