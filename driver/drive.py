@@ -30,10 +30,10 @@ def drive():
 
     while True:
         data, _ = conn.recvfrom(BUF_SIZE)
-        left_x = int.from_bytes(data[0], byteorder='little', signed=True)
-        left_y = int.from_bytes(data[1], byteorder='little', signed=True)
-        right_x = int.from_bytes(data[2], byteorder='little', signed=True)
-        right_y = int.from_bytes(data[3], byteorder='little', signed=True)
+        left_x = int.from_bytes(data[:1], byteorder='little', signed=True)
+        left_y = int.from_bytes(data[1:2], byteorder='little', signed=True)
+        right_x = int.from_bytes(data[2:3], byteorder='little', signed=True)
+        right_y = int.from_bytes(data[3:], byteorder='little', signed=True)
 
         left_motor, right_motor = electric_differential(left_x, left_y)
         pwm.setServoPulse(LEFT_MOTOR, left_motor)
