@@ -40,7 +40,7 @@ const (
 
 // CreatePipeline creates a GStreamer Pipeline
 func CreatePipeline(codecName string, tracks []*webrtc.Track, pipelineSrc string) *Pipeline {
-	pipelineStr := "appsink name=appsink sync=false"
+	pipelineStr := "appsink name=appsink"
 	var clockRate float32
 
 	switch codecName {
@@ -53,7 +53,7 @@ func CreatePipeline(codecName string, tracks []*webrtc.Track, pipelineSrc string
 		clockRate = videoClockRate
 
 	case webrtc.H264:
-		pipelineStr = pipelineSrc + " ! 'video/x-raw(memory:NVMM),format=NV12' ! nvv4l2h264enc bitrate=4000000 ! video/x-h264,stream-format=byte-stream ! " + pipelineStr
+		pipelineStr = pipelineSrc + " ! video/x-raw,format=I420 ! x264enc bframes=0 speed-preset=veryfast key-int-max=60 ! video/x-h264,stream-format=byte-stream ! " + pipelineStr
 		clockRate = videoClockRate
 
 	case webrtc.Opus:
