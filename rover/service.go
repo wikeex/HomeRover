@@ -186,7 +186,7 @@ func (s *Service) startGstream()  {
 		"gst-launch-1.0",
 		"-v",
 		"v4l2src",
-		"!", "video/x-raw,width=1280,height=960,framerate=30/1'",
+		"!", "'video/x-raw,width=1280,height=960,framerate=30/1'",
 		"!", "nvvidconv",
 		"!", "'video/x-raw(memory:NVMM),format=NV12'",
 		"!", "nvv4l2h264enc", "bitrate=4000000",
