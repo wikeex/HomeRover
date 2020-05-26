@@ -3,17 +3,26 @@ package controller
 import (
 	"HomeRover/base"
 	"HomeRover/consts"
-	gst "HomeRover/gst/gstreamer-sink"
 	"HomeRover/log"
 	"HomeRover/models/config"
 	"HomeRover/utils"
+	"bytes"
+	"context"
+	"fmt"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v2"
+	"github.com/sirupsen/logrus"
+	"net"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"time"
 )
 
+type udpConn struct {
+	conn *net.UDPConn
+	port int
+}
 
 func NewService(conf *config.CommonConfig, controllerConf *config.ControllerConfig, joystickData chan []byte) (service *Service, err error) {
 	service = &Service{
@@ -41,6 +50,9 @@ type Service struct {
 func (s *Service) webrtc()  {
 	log.Logger.Info("webrtc task starting...")
 
+	// Create context
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// Prepare the configuration
 	webrtcConf := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
@@ -63,33 +75,75 @@ func (s *Service) webrtc()  {
 		panic(err)
 	}
 
+	// Create a local addr
+	var laddr *net.UDPAddr
+	if laddr, err = net.ResolveUDPAddr("udp", "127.0.0.1:"); err != nil {
+		panic(err)
+	}
+
+	// Prepare udp conns
+	udpConns := map[string]*udpConn{
+		"audio": {port: 4000},
+		"video": {port: 5004},
+	}
+	for _, c := range udpConns {
+		// Create remote addr
+		var raddr *net.UDPAddr
+		if raddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("127.0.0.1:%d", c.port)); err != nil {
+			panic(err)
+		}
+
+		// Dial udp
+		if c.conn, err = net.DialUDP("udp", laddr, raddr); err != nil {
+			panic(err)
+		}
+		defer func(conn net.PacketConn) {
+			if closeErr := conn.Close(); closeErr != nil {
+				panic(closeErr)
+			}
+		}(c.conn)
+	}
+
 	// Set a handler for when a new remote track starts, this handler creates a gstreamer pipeline
 	// for the given codec
 	peerConnection.OnTrack(func(track *webrtc.Track, receiver *webrtc.RTPReceiver) {
+		// Retrieve udp connection
+		c, ok := udpConns[track.Kind().String()]
+		if !ok {
+			return
+		}
+
 		// Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval
-		// This is a temporary fix until we implement incoming RTCP events, then we would push a PLI only when a viewer requests it
 		go func() {
-			ticker := time.NewTicker(time.Second * 3)
+			ticker := time.NewTicker(time.Second * 2)
 			for range ticker.C {
-				rtcpSendErr := peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: track.SSRC()}})
-				if rtcpSendErr != nil {
-					log.Logger.Error(rtcpSendErr)
+				if rtcpErr := peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: track.SSRC()}}); rtcpErr != nil {
+					fmt.Println(rtcpErr)
 				}
 			}
 		}()
 
-		codec := track.Codec()
-		log.Logger.Info("Track has started, of type %d: %s \n", track.PayloadType(), codec.Name)
-		pipeline := gst.CreatePipeline(codec.Name)
-		pipeline.Start()
-		buf := make([]byte, 1400)
+		b := make([]byte, 1500)
 		for {
-			i, readErr := track.Read(buf)
+			// Read
+			n, readErr := track.Read(b)
 			if readErr != nil {
-				panic(err)
+				panic(readErr)
 			}
 
-			pipeline.Push(buf[:i])
+			// Write
+			if _, err = c.conn.Write(b[:n]); err != nil {
+				// For this particular example, third party applications usually timeout after a short
+				// amount of time during which the user doesn't have enough time to provide the answer
+				// to the browser.
+				// That's why, for this particular example, the user first needs to provide the answer
+				// to the browser then open the third party application. Therefore we must not kill
+				// the forward on "connection refused" errors
+				if opError, ok := err.(*net.OpError); ok && opError.Err.Error() == "write: connection refused" {
+					continue
+				}
+				panic(err)
+			}
 		}
 	})
 
@@ -97,6 +151,14 @@ func (s *Service) webrtc()  {
 	// This will notify you when the peer has connected/disconnected
 	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		log.Logger.Info("Connection State has changed %s \n", connectionState.String())
+
+		if connectionState == webrtc.ICEConnectionStateConnected {
+			log.Logger.Info("Ctrl+C the remote client to stop the demo")
+		} else if connectionState == webrtc.ICEConnectionStateFailed ||
+			connectionState == webrtc.ICEConnectionStateDisconnected {
+			log.Logger.Info("Done forwarding")
+			cancel()
+		}
 	})
 
 	// Register data channel creation handling
@@ -147,11 +209,44 @@ func (s *Service) webrtc()  {
 		<-s.WebrtcSignal
 	}
 
+	<-ctx.Done()
+
 	// Block forever
 	select {
 	case <- s.WebrtcSignal:
 		log.Logger.Info("got exit webrtc signal, webrtc will exit")
 		runtime.Goexit()
+	}
+}
+
+func (s *Service) startGstream()  {
+	var err		error
+	var stdout 	bytes.Buffer
+	var stderr 	bytes.Buffer
+
+	// start gstreamer v4l2 video
+	cmd := exec.Command( //nolint
+		"gst-launch-1.0",
+		"udpsrc", "port=5004",
+		`caps="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)H264,payload=(int)96"`,
+		"!", "rtph264depay",
+		"!", "decodebin",
+		"!", "videoconvert",
+		"!", "autovideosink", "sync=false",
+	)
+
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	log.Logger.WithFields(logrus.Fields{
+		"stdout": cmd.Stdout,
+		"stderr": cmd.Stderr,
+	}).Info("execute gst command")
+	if err = cmd.Run(); err != nil {
+		log.Logger.WithFields(logrus.Fields{
+			"stdout": cmd.Stdout,
+			"stderr": cmd.Stderr,
+		}).Error("execute gst command occur an error")
+		panic(cmd.Stderr)
 	}
 }
 
@@ -167,7 +262,7 @@ func (s *Service) Run() {
 
 	go s.SignIn()
 	go s.webrtc()
+	go s.startGstream()
 
-	gst.StartMainLoop()
 	select {}
 }
