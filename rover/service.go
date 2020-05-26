@@ -275,7 +275,7 @@ func (s *Service) webrtcGstreamerCli()  {
 	}
 }
 
-func (s *Service) startGstream()  {
+func (s *Service) startGstreamer()  {
 	var err		error
 	var stdout 	bytes.Buffer
 	var stderr 	bytes.Buffer
@@ -305,6 +305,7 @@ func (s *Service) startGstream()  {
 	}
 }
 
+
 func (s *Service) Run()  {
 	log.Logger.Info("rover service starting")
 	err := s.InitConn()
@@ -318,8 +319,12 @@ func (s *Service) Run()  {
 	go s.SignIn()
 	go s.cmdService()
 
-	go s.webrtc()
-
+	if s.Conf.GstreamerCli {
+		go s.startGstreamer()
+		go s.webrtcGstreamerCli()
+	} else {
+		go s.webrtc()
+	}
 
 	select {}
 }

@@ -10,19 +10,19 @@ type CommonConfig struct {
 	ServerPort		int			`json:"serverPort"`
 	LocalPort		int			`json:"localPort"`
 	StunPort		int			`json:"stunPort"`
-	PackageLen		int			`json:"packageLen"`
 	Id				int			`json:"id"`
 	RemoteId 		int   		`json:"remoteId"`
 	GroupId			int			`json:"groupId"`
+	GstreamerCli	bool		`json:"gstreamerCli"`
 }
 
 func GetDefaultCommonConfig() CommonConfig {
 	return CommonConfig{
-		ServerIP:   "140.143.99.31",
-		ServerPort: 10006,
-		LocalPort:  18000,
-		StunPort: 	43478,
-		PackageLen: 548,
+		ServerIP:   	"140.143.99.31",
+		ServerPort: 	10006,
+		LocalPort:  	18000,
+		StunPort: 		43478,
+		GstreamerCli: 	false,
 	}
 }
 
@@ -38,6 +38,7 @@ func CommonConfigInit(filePath string) (roverConfig CommonConfig, err error) {
 		tempString		string
 		ok				bool
 		value			int
+		boolValue		bool
 	)
 
 	if tempString, ok = conf.Get("common", "serverIp"); ok {
@@ -68,14 +69,6 @@ func CommonConfigInit(filePath string) (roverConfig CommonConfig, err error) {
 		roverConfig.LocalPort = value
 	}
 
-	if tempString, ok = conf.Get("common", "packageLen"); ok {
-		value, err = strconv.Atoi(tempString)
-		if err != nil {
-			return
-		}
-		roverConfig.PackageLen = value
-	}
-
 	if tempString, ok = conf.Get("common", "id"); ok {
 		value, err = strconv.Atoi(tempString)
 		if err != nil {
@@ -104,6 +97,14 @@ func CommonConfigInit(filePath string) (roverConfig CommonConfig, err error) {
 		roverConfig.GroupId = value
 	} else {
 		panic("'groupId' variable missing from 'common' section")
+	}
+
+	if tempString, ok = conf.Get("common", "gstreamerCli"); ok {
+		boolValue, err = strconv.ParseBool(tempString)
+		if err != nil {
+			return
+		}
+		roverConfig.GstreamerCli = boolValue
 	}
 
 	return

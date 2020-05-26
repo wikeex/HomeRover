@@ -3,6 +3,7 @@ package controller
 import (
 	"HomeRover/base"
 	"HomeRover/consts"
+	gst "HomeRover/gst/gstreamer-sink"
 	"HomeRover/log"
 	"HomeRover/models/config"
 	"HomeRover/utils"
@@ -48,6 +49,123 @@ type Service struct {
 }
 
 func (s *Service) webrtc()  {
+	log.Logger.Info("webrtc task starting...")
+
+	// Prepare the configuration
+	webrtcConf := webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:" + s.Conf.ServerIP + ":" + strconv.Itoa(s.Conf.StunPort)},
+			},
+		},
+	}
+
+	// Create a new RTCPeerConnection
+	peerConnection, err := webrtc.NewPeerConnection(webrtcConf)
+	if err != nil {
+		panic(err)
+	}
+
+	// Allow us to receive 1 audio track and 1 video track, send 1 command data channel and 1 audio track
+	if _, err = peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio); err != nil {
+		panic(err)
+	} else if _, err = peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo); err != nil {
+		panic(err)
+	}
+
+	// Set a handler for when a new remote track starts, this handler creates a gstreamer pipeline
+	// for the given codec
+	peerConnection.OnTrack(func(track *webrtc.Track, receiver *webrtc.RTPReceiver) {
+		// Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval
+		// This is a temporary fix until we implement incoming RTCP events, then we would push a PLI only when a viewer requests it
+		go func() {
+			ticker := time.NewTicker(time.Second * 3)
+			for range ticker.C {
+				rtcpSendErr := peerConnection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: track.SSRC()}})
+				if rtcpSendErr != nil {
+					log.Logger.Error(rtcpSendErr)
+				}
+			}
+		}()
+
+		codec := track.Codec()
+		log.Logger.Info("Track has started, of type %d: %s \n", track.PayloadType(), codec.Name)
+		pipeline := gst.CreatePipeline(codec.Name)
+		pipeline.Start()
+		buf := make([]byte, 1400)
+		for {
+			i, readErr := track.Read(buf)
+			if readErr != nil {
+				panic(err)
+			}
+
+			pipeline.Push(buf[:i])
+		}
+	})
+
+	// Set the handler for ICE connection state
+	// This will notify you when the peer has connected/disconnected
+	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+		log.Logger.Info("Connection State has changed %s \n", connectionState.String())
+	})
+
+	// Register data channel creation handling
+	peerConnection.OnDataChannel(func(d *webrtc.DataChannel) {
+		log.Logger.Info("New DataChannel %s %d\n", d.Label(), d.ID())
+
+		// Register channel opening handling
+		d.OnOpen(func() {
+			log.Logger.Info("Data channel '%s'-'%d' open. Joystick data will now be sent to any connected DataChannels\n", d.Label(), d.ID())
+
+			for {
+				// Send the message as bytes
+				sendErr := d.Send(<- s.joystickData)
+				if sendErr != nil {
+					panic(sendErr)
+				}
+			}
+		})
+
+		// Register text message handling
+		d.OnMessage(func(msg webrtc.DataChannelMessage) {
+			log.Logger.Info("Message from DataChannel '%s': '%s'\n", d.Label(), string(msg.Data))
+		})
+	})
+
+	// Set the remote SessionDescription
+	err = peerConnection.SetRemoteDescription(<- s.RemoteSDPCh)
+	if err != nil {
+		panic(err)
+	}
+
+	// Create an answer
+	answer, err := peerConnection.CreateAnswer(nil)
+	if err != nil {
+		panic(err)
+	}
+
+	// Sets the LocalDescription, and starts our UDP listeners
+	err = peerConnection.SetLocalDescription(answer)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Logger.Debug("send sdp to send channel")
+	s.SendCh <- utils.Encode(answer)
+
+	if len(s.WebrtcSignal) > 0 {
+		<-s.WebrtcSignal
+	}
+
+	// Block forever
+	select {
+	case <- s.WebrtcSignal:
+		log.Logger.Info("got exit webrtc signal, webrtc will exit")
+		runtime.Goexit()
+	}
+}
+
+func (s *Service) webrtcGstreamerCli()  {
 	log.Logger.Info("webrtc task starting...")
 
 	// Create context
@@ -219,7 +337,7 @@ func (s *Service) webrtc()  {
 	}
 }
 
-func (s *Service) startGstream()  {
+func (s *Service) startGstreamer()  {
 	var err		error
 	var stdout 	bytes.Buffer
 	var stderr 	bytes.Buffer
@@ -250,6 +368,7 @@ func (s *Service) startGstream()  {
 	}
 }
 
+
 func (s *Service) Run() {
 	log.Logger.Info("controller service starting...")
 	err := s.InitConn()
@@ -261,8 +380,14 @@ func (s *Service) Run() {
 	go s.ServerRecv()
 
 	go s.SignIn()
-	go s.webrtc()
-	go s.startGstream()
+
+	if s.Conf.GstreamerCli {
+		go s.webrtcGstreamerCli()
+		go s.startGstreamer()
+	} else {
+		go s.webrtc()
+		gst.StartMainLoop()
+	}
 
 	select {}
 }
