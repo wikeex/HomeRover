@@ -65,7 +65,7 @@ func (s *Service) webrtc()  {
 	log.Logger.Info("webrtc task starting...")
 
 	audioSrc := flag.String("audio-src", "audiotestsrc", "GStreamer audio src")
-	videoSrc := flag.String("video-src", "v4l2src ! 'image/jpeg,width=1280, height=960, framerate=30/1' ! jpegparse ! jpegdec", "GStreamer video src")
+	videoSrc := flag.String("video-src", "v4l2src ! image/jpeg,width=1280,height=960,framerate=30/1 ! jpegparse ! jpegdec", "GStreamer video src")
 	flag.Parse()
 
 	// Prepare the configuration

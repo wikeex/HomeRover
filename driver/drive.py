@@ -3,7 +3,7 @@ import socket
 
 BUF_SIZE = 548
 
-CAM_X = 1
+CAM_X = 0
 CAM_Y = 2
 LEFT_MOTOR = 3
 RIGHT_MOTOR = 4
