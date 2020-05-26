@@ -39,8 +39,8 @@ def drive():
         pwm.setServoPulse(LEFT_MOTOR, left_motor)
         pwm.setServoPulse(RIGHT_MOTOR, right_motor)
 
-        pwm.setRotationAngle(CAM_X, - right_x / 128.0 * 70 + 90)
-        pwm.setRotationAngle(CAM_Y, right_y / 128.0 * 70 + 120)
+        pwm.setRotationAngle(CAM_X, 160 - (right_x / 128.0 * 70 + 90))
+        pwm.setRotationAngle(CAM_Y, right_y / 128.0 * 70 + 180)
 
 
 if __name__ == '__main__':
