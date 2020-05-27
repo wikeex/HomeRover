@@ -21,7 +21,7 @@ def drive():
     pwm.setPWMFreq(50)
     pwm.setRotationAngle(CAM_X, 180)
     pwm.setRotationAngle(CAM_Y, 180)
-    pwm.setServoPulse(3000 - LEFT_MOTOR, 1501)
+    pwm.setServoPulse(LEFT_MOTOR, 1501)
     pwm.setServoPulse(RIGHT_MOTOR, 1501)
 
     listen_addr = ('127.0.0.1', 10008)
@@ -36,7 +36,9 @@ def drive():
         right_y = int.from_bytes(data[3:], byteorder='little', signed=True)
 
         left_motor, right_motor = electric_differential(left_x, left_y)
-        pwm.setServoPulse(LEFT_MOTOR, left_motor)
+
+        # according to motor setting, need to reserve left motor
+        pwm.setServoPulse(LEFT_MOTOR, 3000 - left_motor)
         pwm.setServoPulse(RIGHT_MOTOR, right_motor)
 
         pwm.setRotationAngle(CAM_X, 160 - (right_x / 128.0 * 70 + 90))
