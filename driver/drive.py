@@ -21,7 +21,7 @@ def drive():
     pwm.setPWMFreq(50)
     pwm.setRotationAngle(CAM_X, 180)
     pwm.setRotationAngle(CAM_Y, 180)
-    pwm.setServoPulse(LEFT_MOTOR, 1501)
+    pwm.setServoPulse(3000 - LEFT_MOTOR, 1501)
     pwm.setServoPulse(RIGHT_MOTOR, 1501)
 
     listen_addr = ('127.0.0.1', 10008)
