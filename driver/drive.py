@@ -4,9 +4,9 @@ import socket
 BUF_SIZE = 548
 
 CAM_X = 0
-CAM_Y = 2
-LEFT_MOTOR = 3
-RIGHT_MOTOR = 4
+CAM_Y = 1
+LEFT_MOTOR = 2
+RIGHT_MOTOR = 3
 
 
 def electric_differential(x, y, max_difference=500):
@@ -40,7 +40,7 @@ def drive():
         pwm.setServoPulse(RIGHT_MOTOR, right_motor)
 
         pwm.setRotationAngle(CAM_X, 160 - (right_x / 128.0 * 70 + 90))
-        pwm.setRotationAngle(CAM_Y, right_y / 128.0 * 70 + 150)
+        pwm.setRotationAngle(CAM_Y, min(right_y / 128.0 * 70 + 150, 180))
 
 
 if __name__ == '__main__':
