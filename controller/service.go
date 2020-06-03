@@ -92,6 +92,7 @@ func (s *Service) webrtc()  {
 		log.Logger.Info("Track has started, of type %d: %s \n", track.PayloadType(), codec.Name)
 		pipeline := gst.CreatePipeline(codec.Name)
 		pipeline.Start()
+		defer pipeline.Stop()
 		buf := make([]byte, 1400)
 		for {
 			i, readErr := track.Read(buf)
@@ -155,13 +156,8 @@ func (s *Service) webrtc()  {
 
 	// Block forever
 	select {
-	case remoteSDP := <- s.RemoteSDPCh:
+	case <- s.WebrtcEndSignal:
 		log.Logger.Info("got new SDP, webrtc will restart")
-		go func() {
-			s.RemoteSDPCh <- remoteSDP
-			go s.webrtc()
-			gst.StartMainLoop()
-		}()
 		runtime.Goexit()
 	}
 }

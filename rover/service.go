@@ -153,13 +153,17 @@ func (s *Service) webrtc()  {
 	}
 
 	// Start pushing buffers on these tracks
-	gst.CreatePipeline(webrtc.Opus, []*webrtc.Track{audioTrack}, *s.audioSrc).Start()
-	gst.CreatePipeline(webrtc.H264, []*webrtc.Track{videoTrack}, *s.videoSrc).Start()
+	audioPipeline := gst.CreatePipeline(webrtc.Opus, []*webrtc.Track{audioTrack}, *s.audioSrc)
+	videoPipeline := gst.CreatePipeline(webrtc.H264, []*webrtc.Track{videoTrack}, *s.videoSrc)
 
+	audioPipeline.Start()
+	videoPipeline.Start()
 	// Block forever
 	select {
 	case <- s.WebrtcEndSignal:
 		log.Logger.Info("webrtc exit signal got, restart webrtc")
+		audioPipeline.Stop()
+		videoPipeline.Stop()
 		runtime.Goexit()
 	}
 }
