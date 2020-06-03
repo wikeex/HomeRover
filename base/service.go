@@ -52,6 +52,7 @@ func (s *Service) InitConn() error {
 
 	s.RemoteSDPCh = make(chan webrtc.SessionDescription, 1)
 	s.SendCh = make(chan string, 1)
+	s.SDPReqCh = make(chan bool, 1)
 	s.WebrtcSignal = make(chan bool, 1)
 
 	log.Logger.WithFields(logrus.Fields{
@@ -141,13 +142,13 @@ func (s *Service) ServerRecv()  {
 
 			log.Logger.WithFields(logrus.Fields{
 				"remote Message": rs.Message,
+				"Message type": rs.MessageType,
 			}).Info("got remote message")
-
-			remoteOffer := webrtc.SessionDescription{}
-			utils.Decode(rs.Message, &remoteOffer)
 
 			switch rs.MessageType {
 			case consts.SDPExchange:
+				remoteOffer := webrtc.SessionDescription{}
+				utils.Decode(rs.Message, &remoteOffer)
 				s.RemoteSDPCh <- remoteOffer
 			case consts.SDPReq:
 				s.SDPReqCh <- true

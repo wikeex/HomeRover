@@ -387,6 +387,7 @@ func (s *Service) Run() {
 		log.Logger.Error(err)
 	}
 
+	s.SDPReqCh <- true
 	go s.Send()
 	go s.ServerRecv()
 
