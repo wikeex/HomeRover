@@ -30,7 +30,7 @@ type Service struct {
 
 	RemoteSDPCh		chan webrtc.SessionDescription
 	SendCh			chan string
-	WebrtcSignal	chan bool
+	WebrtcEndSignal	chan bool
 	SDPReqCh		chan bool
 }
 
@@ -53,7 +53,7 @@ func (s *Service) InitConn() error {
 	s.RemoteSDPCh = make(chan webrtc.SessionDescription, 1)
 	s.SendCh = make(chan string, 1)
 	s.SDPReqCh = make(chan bool, 1)
-	s.WebrtcSignal = make(chan bool, 1)
+	s.WebrtcEndSignal = make(chan bool, 1)
 
 	log.Logger.WithFields(logrus.Fields{
 		"server port": s.ServerConn.LocalAddr().String(),

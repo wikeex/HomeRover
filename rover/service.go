@@ -151,9 +151,8 @@ func (s *Service) webrtc()  {
 
 	// Block forever
 	select {
-	case <- s.SDPReqCh:
-		log.Logger.Info("SDPReq got, restart webrtc")
-		go s.webrtc()
+	case <- s.WebrtcEndSignal:
+		log.Logger.Info("webrtc exit signal got, restart webrtc")
 		runtime.Goexit()
 	}
 }
@@ -275,9 +274,8 @@ func (s *Service) webrtcGstreamerCli()  {
 		}
 
 		select {
-		case <- s.SDPReqCh:
-			log.Logger.Info("SDPReq got, restart webrtc")
-			go s.webrtcGstreamerCli()
+		case <- s.WebrtcEndSignal:
+			log.Logger.Info("webrtc exit signal got, restart webrtc")
 			runtime.Goexit()
 		default:
 		}
@@ -327,13 +325,18 @@ func (s *Service) Run()  {
 
 	go s.SignIn()
 	go s.cmdService()
+	go s.startGstreamer()
 
-	if s.Conf.GstreamerCli {
-		go s.startGstreamer()
-		go s.webrtcGstreamerCli()
-	} else {
-		go s.webrtc()
+	for {
+		if s.Conf.GstreamerCli {
+			go s.webrtcGstreamerCli()
+		} else {
+			go s.webrtc()
+		}
+		select {
+		case <- s.SDPReqCh:
+			s.WebrtcEndSignal <- true
+		}
 	}
 
-	select {}
 }

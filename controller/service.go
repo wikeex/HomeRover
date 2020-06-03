@@ -153,10 +153,6 @@ func (s *Service) webrtc()  {
 	log.Logger.Debug("send sdp to send channel")
 	s.SendCh <- utils.Encode(answer)
 
-	if len(s.WebrtcSignal) > 0 {
-		<-s.WebrtcSignal
-	}
-
 	// Block forever
 	select {
 	case remoteSDP := <- s.RemoteSDPCh:
@@ -328,22 +324,12 @@ func (s *Service) webrtcGstreamerCli()  {
 	log.Logger.Debug("send sdp to send channel")
 	s.SendCh <- utils.Encode(answer)
 
-	if len(s.WebrtcSignal) > 0 {
-		<-s.WebrtcSignal
-	}
-
 	<-ctx.Done()
 
 	// Block forever
 	select {
-	case remoteSDP := <- s.RemoteSDPCh:
+	case <- s.WebrtcEndSignal:
 		log.Logger.Info("got exit webrtc signal, webrtc will exit")
-
-		go func() {
-			go s.webrtcGstreamerCli()
-			s.RemoteSDPCh <- remoteSDP
-		}()
-
 		runtime.Goexit()
 	}
 }
@@ -392,14 +378,20 @@ func (s *Service) Run() {
 	go s.ServerRecv()
 
 	go s.SignIn()
+	go s.startGstreamer()
 
-	if s.Conf.GstreamerCli {
-		go s.webrtcGstreamerCli()
-		go s.startGstreamer()
-	} else {
-		go s.webrtc()
-		gst.StartMainLoop()
+	for {
+		if s.Conf.GstreamerCli {
+			go s.webrtcGstreamerCli()
+		} else {
+			go s.webrtc()
+			gst.StartMainLoop()
+		}
+
+		select {
+		case remoteSDP := <- s.RemoteSDPCh:
+			s.WebrtcEndSignal <- true
+			s.RemoteSDPCh <- remoteSDP
+		}
 	}
-
-	select {}
 }
