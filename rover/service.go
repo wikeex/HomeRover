@@ -27,6 +27,7 @@ func NewService(conf *config.CommonConfig, roverConf *config.RoverConfig) (servi
 	service.joystickDataCh = make(chan []byte, 1)
 	service.LocalClient.Type = consts.Rover
 	service.LocalClient.Id = uint16(conf.Id)
+
 	return
 }
 
@@ -37,6 +38,25 @@ type Service struct {
 	joystickDataCh	chan []byte
 
 	cmdServiceConn	net.Conn
+
+	audioSrc		*string
+	videoSrc		*string
+	webrtcConf		webrtc.Configuration
+}
+
+func (s *Service) initWebrtc()  {
+	s.audioSrc = flag.String("audio-src", "audiotestsrc", "GStreamer audio src")
+	s.videoSrc = flag.String("video-src", "v4l2src ! image/jpeg,width=1280,height=960,framerate=30/1 ! jpegparse ! jpegdec", "GStreamer video src")
+	flag.Parse()
+
+	// Prepare the configuration
+	s.webrtcConf = webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:" + s.Conf.ServerIP + ":" + strconv.Itoa(s.Conf.StunPort)},
+			},
+		},
+	}
 }
 
 func (s *Service) cmdService()  {
@@ -64,21 +84,8 @@ func (s *Service) cmdService()  {
 func (s *Service) webrtc()  {
 	log.Logger.Info("webrtc task starting...")
 
-	audioSrc := flag.String("audio-src", "audiotestsrc", "GStreamer audio src")
-	videoSrc := flag.String("video-src", "v4l2src ! image/jpeg,width=1280,height=960,framerate=30/1 ! jpegparse ! jpegdec", "GStreamer video src")
-	flag.Parse()
-
-	// Prepare the configuration
-	webrtcConf := webrtc.Configuration{
-		ICEServers: []webrtc.ICEServer{
-			{
-				URLs: []string{"stun:" + s.Conf.ServerIP + ":" + strconv.Itoa(s.Conf.StunPort)},
-			},
-		},
-	}
-
 	// Create a new RTCPeerConnection
-	peerConnection, err := webrtc.NewPeerConnection(webrtcConf)
+	peerConnection, err := webrtc.NewPeerConnection(s.webrtcConf)
 	if err != nil {
 		panic(err)
 	}
@@ -146,8 +153,8 @@ func (s *Service) webrtc()  {
 	}
 
 	// Start pushing buffers on these tracks
-	gst.CreatePipeline(webrtc.Opus, []*webrtc.Track{audioTrack}, *audioSrc).Start()
-	gst.CreatePipeline(webrtc.H264, []*webrtc.Track{videoTrack}, *videoSrc).Start()
+	gst.CreatePipeline(webrtc.Opus, []*webrtc.Track{audioTrack}, *s.audioSrc).Start()
+	gst.CreatePipeline(webrtc.H264, []*webrtc.Track{videoTrack}, *s.videoSrc).Start()
 
 	// Block forever
 	select {
@@ -319,6 +326,8 @@ func (s *Service) Run()  {
 	if err != nil {
 		log.Logger.Error(err)
 	}
+
+	s.initWebrtc()
 
 	go s.Send()
 	go s.ServerRecv()
