@@ -159,8 +159,13 @@ func (s *Service) webrtc()  {
 
 	// Block forever
 	select {
-	case <- s.WebrtcSignal:
-		log.Logger.Info("got exit webrtc signal, webrtc will exit")
+	case remoteSDP := <- s.RemoteSDPCh:
+		log.Logger.Info("got new SDP, webrtc will restart")
+		go func() {
+			s.RemoteSDPCh <- remoteSDP
+			go s.webrtc()
+			gst.StartMainLoop()
+		}()
 		runtime.Goexit()
 	}
 }
@@ -331,8 +336,14 @@ func (s *Service) webrtcGstreamerCli()  {
 
 	// Block forever
 	select {
-	case <- s.WebrtcSignal:
+	case remoteSDP := <- s.RemoteSDPCh:
 		log.Logger.Info("got exit webrtc signal, webrtc will exit")
+
+		go func() {
+			go s.webrtcGstreamerCli()
+			s.RemoteSDPCh <- remoteSDP
+		}()
+
 		runtime.Goexit()
 	}
 }

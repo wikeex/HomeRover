@@ -85,12 +85,14 @@ func (s *Service) offline(c *tcpx.Context) {
 
 func (s *Service) send(c *tcpx.Context) {
 	type RequestFrom struct {
-		Message string `json:"message"`
-		ToUser  string `json:"to_user"`
+		Message 		string 		`json:"message"`
+		ToUser  		string 		`json:"to_user"`
+		MessageType 	uint8 		`json:"messageType"`
 	}
 	type ResponseTo struct {
-		Message  string `json:"message"`
-		FromUser string `json:"from_user"`
+		Message  			string 		`json:"message"`
+		FromUser 			string 		`json:"from_user"`
+		MessageType 		uint8		`json:"messageType"`
 	}
 	var req RequestFrom
 	if _, e := c.Bind(&req); e != nil {
@@ -99,8 +101,9 @@ func (s *Service) send(c *tcpx.Context) {
 	anotherCtx := c.GetPoolRef().GetClientPool(req.ToUser)
 	if anotherCtx.IsOnline() {
 		err := c.SendToUsername(req.ToUser, 6, ResponseTo{
-			Message:  req.Message,
-			FromUser: req.ToUser,
+			Message:  		req.Message,
+			FromUser: 		req.ToUser,
+			MessageType: 	req.MessageType,
 		})
 		if err != nil {
 			log.Logger.WithFields(logrus.Fields{

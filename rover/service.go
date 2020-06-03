@@ -151,8 +151,9 @@ func (s *Service) webrtc()  {
 
 	// Block forever
 	select {
-	case <- s.WebrtcSignal:
-		log.Logger.Info("video send task end")
+	case <- s.SDPReqCh:
+		log.Logger.Info("SDPReq got, restart webrtc")
+		go s.webrtc()
 		runtime.Goexit()
 	}
 }
@@ -271,6 +272,14 @@ func (s *Service) webrtcGstreamerCli()  {
 
 		if writeErr := videoTrack.WriteRTP(packet); writeErr != nil {
 			panic(writeErr)
+		}
+
+		select {
+		case <- s.SDPReqCh:
+			log.Logger.Info("SDPReq got, restart webrtc")
+			go s.webrtcGstreamerCli()
+			runtime.Goexit()
+		default:
 		}
 	}
 }

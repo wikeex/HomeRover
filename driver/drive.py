@@ -9,7 +9,7 @@ LEFT_MOTOR = 2
 RIGHT_MOTOR = 3
 
 
-def electric_differential(x, y, max_difference=500):
+def electric_differential(x, y, max_difference=200):
     base_pulse = y / 128.0 * 1000 + 1500
     difference = x / 128.0 * max_difference
 
@@ -42,7 +42,7 @@ def drive():
         pwm.setServoPulse(RIGHT_MOTOR, right_motor)
 
         pwm.setRotationAngle(CAM_X, 160 - (right_x / 128.0 * 70 + 90))
-        pwm.setRotationAngle(CAM_Y, min(right_y / 128.0 * 70 + 150, 180))
+        pwm.setRotationAngle(CAM_Y, min(right_y / 128.0 * 70 + 120, 180))
 
 
 if __name__ == '__main__':

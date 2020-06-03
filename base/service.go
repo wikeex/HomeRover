@@ -1,6 +1,7 @@
 package base
 
 import (
+	"HomeRover/consts"
 	"HomeRover/log"
 	"HomeRover/models/client"
 	"HomeRover/models/config"
@@ -30,6 +31,7 @@ type Service struct {
 	RemoteSDPCh		chan webrtc.SessionDescription
 	SendCh			chan string
 	WebrtcSignal	chan bool
+	SDPReqCh		chan bool
 }
 
 func (s *Service) InitConn() error {
@@ -61,18 +63,27 @@ func (s *Service) InitConn() error {
 
 func (s *Service) Send() {
 	var  (
-		buf 	[]byte
-		err		error
+		buf 			[]byte
+		err				error
+		message			string
+		messageType 	uint8
 	)
 
 	for {
+		select {
+		case message = <- s.SendCh:
+			messageType = consts.SDPExchange
+		case <-s.SDPReqCh:
+			messageType = consts.SDPReq
+		}
 		buf, err = tcpx.PackWithMarshaller(tcpx.Message{
 			MessageID: 5,
 			Header:    nil,
 			Body: struct {
-				Message string `json:"message"`
-				ToUser  string `json:"to_user"`
-			}{Message: <-s.SendCh, ToUser: strconv.Itoa(s.Conf.RemoteId)},
+				Message 		string 		`json:"message"`
+				ToUser  		string 		`json:"to_user"`
+				MessageType 	uint8 		`json:"messageType"`
+			}{Message: message, ToUser: strconv.Itoa(s.Conf.RemoteId), MessageType: messageType},
 		}, tcpx.JsonMarshaller{})
 		if err != nil {
 			panic(err)
@@ -118,8 +129,9 @@ func (s *Service) ServerRecv()  {
 
 		case 6:
 			type ResponseTo struct {
-				Message  string `json:"message"`
-				FromUser string `json:"from_user"`
+				Message  		string 		`json:"message"`
+				FromUser 		string 		`json:"from_user"`
+				MessageType 	uint8		`json:"messageType"`
 			}
 			var rs ResponseTo
 			e = json.Unmarshal(bf, &rs)
@@ -134,7 +146,12 @@ func (s *Service) ServerRecv()  {
 			remoteOffer := webrtc.SessionDescription{}
 			utils.Decode(rs.Message, &remoteOffer)
 
-			s.RemoteSDPCh <- remoteOffer
+			switch rs.MessageType {
+			case consts.SDPExchange:
+				s.RemoteSDPCh <- remoteOffer
+			case consts.SDPReq:
+				s.SDPReqCh <- true
+			}
 		}
 	}
 }
