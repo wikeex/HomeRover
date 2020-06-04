@@ -346,7 +346,10 @@ func (s *Service) Run()  {
 
 	go s.SignIn()
 	go s.cmdService()
-	go s.startGstreamer()
+
+	if s.Conf.GstreamerCli {
+		go s.startGstreamer()
+	}
 
 	for {
 		if s.Conf.GstreamerCli {
