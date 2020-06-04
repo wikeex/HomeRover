@@ -142,10 +142,17 @@ func (s *Service) webrtc()  {
 
 	s.SendCh <- utils.Encode(offer)
 
-	var answer = <- s.RemoteSDPCh
-	log.Logger.WithFields(logrus.Fields{
-		"remote sdp": utils.Encode(answer),
-	}).Debug("got remote sdp from remote sdp channel")
+	var answer webrtc.SessionDescription
+	select {
+	case answer = <- s.RemoteSDPCh:
+		log.Logger.WithFields(logrus.Fields{
+			"remote sdp": utils.Encode(answer),
+		}).Debug("got remote sdp from remote sdp channel")
+	case <- s.WebrtcEndSignal:
+		log.Logger.Info("webrtc exit signal got, restart webrtc")
+		runtime.Goexit()
+	}
+
 
 	// Set the remote SessionDescription
 	err = peerConnection.SetRemoteDescription(answer)
