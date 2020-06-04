@@ -158,6 +158,12 @@ func (s *Service) webrtc()  {
 	select {
 	case <- s.WebrtcEndSignal:
 		log.Logger.Info("got new SDP, webrtc will restart")
+		err = peerConnection.Close()
+		if err != nil {
+			log.Logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("close peerConnection err")
+		}
 		runtime.Goexit()
 	}
 }
@@ -326,6 +332,12 @@ func (s *Service) webrtcGstreamerCli()  {
 	select {
 	case <- s.WebrtcEndSignal:
 		log.Logger.Info("got exit webrtc signal, webrtc will exit")
+		err = peerConnection.Close()
+		if err != nil {
+			log.Logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("close peerConnection err")
+		}
 		runtime.Goexit()
 	}
 }

@@ -150,6 +150,12 @@ func (s *Service) webrtc()  {
 		}).Debug("got remote sdp from remote sdp channel")
 	case <- s.WebrtcEndSignal:
 		log.Logger.Info("webrtc exit signal got, restart webrtc")
+		err = peerConnection.Close()
+		if err != nil {
+			log.Logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("close peerConnection err")
+		}
 		runtime.Goexit()
 	}
 
@@ -172,6 +178,12 @@ func (s *Service) webrtc()  {
 		log.Logger.Info("webrtc exit signal got, restart webrtc")
 		audioPipeline.Stop()
 		videoPipeline.Stop()
+		err = peerConnection.Close()
+		if err != nil {
+			log.Logger.WithFields(logrus.Fields{
+				"err": err,
+			}).Error("close peerConnection err")
+		}
 		runtime.Goexit()
 	}
 }
@@ -295,6 +307,12 @@ func (s *Service) webrtcGstreamerCli()  {
 		select {
 		case <- s.WebrtcEndSignal:
 			log.Logger.Info("webrtc exit signal got, restart webrtc")
+			err = peerConnection.Close()
+			if err != nil {
+				log.Logger.WithFields(logrus.Fields{
+					"err": err,
+				}).Error("close peerConnection err")
+			}
 			runtime.Goexit()
 		default:
 		}
