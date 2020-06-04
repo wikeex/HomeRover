@@ -388,6 +388,7 @@ func (s *Service) Run() {
 		case remoteSDP := <- s.RemoteSDPCh:
 			s.WebrtcEndSignal <- true
 			s.RemoteSDPCh <- remoteSDP
+			time.Sleep(time.Second)
 		}
 	}
 }

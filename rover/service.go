@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
+	"time"
 )
 
 func NewService(conf *config.CommonConfig, roverConf *config.RoverConfig) (service *Service, err error) {
@@ -349,6 +350,7 @@ func (s *Service) Run()  {
 		select {
 		case <- s.SDPReqCh:
 			s.WebrtcEndSignal <- true
+			time.Sleep(time.Second)
 		}
 	}
 
