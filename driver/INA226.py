@@ -38,6 +38,6 @@ class INA226:
 
 if __name__ == '__main__':
     ina226 = INA226()
-    current_register = ina226.read(0x01)
+    current_register = ina226.read(0x02)
     print(current_register)
 

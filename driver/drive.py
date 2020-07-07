@@ -1,5 +1,6 @@
 from PCA9685 import PCA9685
 import socket
+import Jetson.GPIO as GPIO
 
 BUF_SIZE = 548
 
@@ -7,6 +8,9 @@ CAM_X = 0
 CAM_Y = 1
 LEFT_MOTOR = 2
 RIGHT_MOTOR = 3
+
+LEFT_ENABLE = 37
+RIGHT_ENABLE = 38
 
 
 def electric_differential(x, y, max_difference=200):
@@ -23,6 +27,10 @@ def drive():
     pwm.setRotationAngle(CAM_Y, 180)
     pwm.setServoPulse(LEFT_MOTOR, 1501)
     pwm.setServoPulse(RIGHT_MOTOR, 1501)
+
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(LEFT_ENABLE, GPIO.OUT, initial=GPIO.HIGH)
+    GPIO.setup(RIGHT_ENABLE, GPIO.OUT, initial=GPIO.HIGH)
 
     listen_addr = ('127.0.0.1', 10008)
     conn = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
