@@ -29,8 +29,11 @@ def drive():
     pwm.setServoPulse(RIGHT_MOTOR, 1501)
 
     GPIO.setmode(GPIO.BOARD)
-    GPIO.setup(LEFT_ENABLE, GPIO.OUT, initial=GPIO.HIGH)
-    GPIO.setup(RIGHT_ENABLE, GPIO.OUT, initial=GPIO.HIGH)
+    GPIO.setup(LEFT_ENABLE, GPIO.OUT, initial=GPIO.LOW)
+    GPIO.setup(RIGHT_ENABLE, GPIO.OUT, initial=GPIO.LOW)
+
+    GPIO.output(LEFT_ENABLE, GPIO.HIGH)
+    GPIO.output(RIGHT_ENABLE, GPIO.HIGH)
 
     listen_addr = ('127.0.0.1', 10008)
     conn = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

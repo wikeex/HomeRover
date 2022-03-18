@@ -14,7 +14,7 @@ class INA226:
     __manufacturer_id_register = 0xfe
     __die_id_register = 0xff
 
-    def __init__(self, address=0x44, debug=False):
+    def __init__(self, address=0x41, debug=False):
         self.bus = smbus.SMBus(1)
         self.address = address
         self.debug = debug
